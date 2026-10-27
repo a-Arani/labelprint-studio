@@ -1,12 +1,13 @@
 // Roll types: labels as they pass through the printer (liner width, columns, label size, gaps)
 import { S } from './state.js';
-import { h, api, toast, dialog, confirmBox, uid, r2, clone, SVGNS, dims } from './util.js';
+import { h, api, toast, dialog, confirmBox, uid, r2, clamp, clone, SVGNS, dims } from './util.js';
 import { toMono, monoToBase64 } from './render.js';
 import { loadPrinters, profileFor, pickDefaultPrinter } from './printers.js';
 import { t, tRaw } from './i18n.js';
 
+// cols × rows: the labels in each print (across the roll × down the roll; down is nearly always 1)
 export const MEDIA_DEFAULT = {
-  name: '', linerW: 100, cols: 1, labelW: 100, labelH: 50, colGap: 0, marginL: 0,
+  name: '', linerW: 100, cols: 1, rows: 1, labelW: 100, labelH: 50, colGap: 0, marginL: 0,
   rowGap: 2, gapType: 'gap', gapOffset: 0, radius: 2, colOffsets: [],
 };
 
@@ -22,10 +23,11 @@ const gapTypes = () => ['gap', 'bline', 'continuous'].map((k) => [k, t('media.ga
 
 export function normMedia(m) {
   const out = { ...MEDIA_DEFAULT, ...m };
-  for (const k of ['linerW', 'cols', 'labelW', 'labelH', 'colGap', 'marginL', 'rowGap', 'gapOffset', 'radius']) {
+  for (const k of ['linerW', 'cols', 'rows', 'labelW', 'labelH', 'colGap', 'marginL', 'rowGap', 'gapOffset', 'radius']) {
     out[k] = Number(out[k]) || 0;
   }
   out.cols = Math.max(1, Math.min(12, Math.round(out.cols)));
+  out.rows = Math.max(1, Math.min(4, Math.round(out.rows)));
   out.colOffsets = Array.from({ length: out.cols }, (_, i) => Number((m.colOffsets || [])[i]) || 0);
   out.id = out.id || uid();
   return out;
@@ -43,17 +45,26 @@ export async function saveMediaList(list) {
 
 export const mediaById = (id) => (id ? mediaList().find((m) => m.id === id) : null);
 
-/** Column positions and the right margin */
+/** Column and row positions in one print, its height, and the right margin */
 export function layout(m) {
+  const rows = m.rows || 1;
   const used = m.marginL + m.cols * m.labelW + (m.cols - 1) * m.colGap;
-  const xs = Array.from({ length: m.cols }, (_, i) => m.marginL + i * (m.labelW + m.colGap) + (m.colOffsets[i] || 0));
-  return { used, marginR: r2(m.linerW - used), xs };
+  const xs = Array.from({ length: m.cols }, (_, i) => m.marginL + i * (m.labelW + m.colGap) + ((m.colOffsets || [])[i] || 0));
+  const ys = Array.from({ length: rows }, (_, i) => i * (m.labelH + m.rowGap));
+  return { used, marginR: r2(m.linerW - used), xs, ys, pageH: r2(rows * m.labelH + (rows - 1) * m.rowGap) };
 }
 
-export function problems(m, maxWidth = 108) {
+/** Labels in each print */
+export const perPrint = (m) => m.cols * (m.rows || 1);
+
+/** Width the labels take without the margins */
+export const labelsWidth = (m) => r2(m.cols * m.labelW + (m.cols - 1) * m.colGap);
+
+/** What is wrong with a roll; skipFit: leave out "the labels are wider than the roll" (the Rolls window shows it itself) */
+export function problems(m, maxWidth = 108, skipFit = false) {
   const out = [];
   const L = layout(m);
-  if (L.marginR < -0.05) out.push(t('media.tooWide', { used: r2(L.used), width: m.linerW }));
+  if (!skipFit && L.marginR < -0.05) out.push(t('media.tooWide', { used: r2(L.used), width: m.linerW }));
   if (m.linerW > maxWidth + 0.05) out.push(t('media.overPrinter', { width: m.linerW, max: maxWidth }));
   if (m.labelW <= 0 || m.labelH <= 0) out.push(t('media.badSize'));
   return out;
@@ -68,67 +79,94 @@ export function matchMedia(page) {
   return own || list.find(fits) || null;
 }
 
-/** TSPL settings of a roll: SIZE = liner width × one row height */
-export const tsplOf = (m) => ({ stockW: m.linerW, stockH: m.labelH, gap: m.rowGap, gapOffset: m.gapOffset, media: m.gapType });
+/** TSPL settings of a roll: SIZE = liner width × the height of one print (one row of labels, or more) */
+export const tsplOf = (m) => ({ stockW: m.linerW, stockH: layout(m).pageH, gap: m.rowGap, gapOffset: m.gapOffset, media: m.gapType });
 
 // ---------------------------------------------------------------- diagram
 function sv(tag, attrs, text) {
   const n = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) n.setAttribute(k, v);
   if (text !== undefined) n.textContent = text;
   return n;
 }
 
-function dim(g, x1, y1, x2, y2, label, vertical = false) {
-  const col = '#1f5fbf';
-  g.append(sv('line', { x1, y1, x2, y2, stroke: col, 'stroke-width': 0.25, 'marker-start': 'url(#arr)', 'marker-end': 'url(#arr)' }));
-  const tx = (x1 + x2) / 2, ty = (y1 + y2) / 2;
-  const txt = sv('text', {
-    x: vertical ? tx + 1.2 : tx, y: vertical ? ty : ty - 1, fill: col, 'font-size': 3.2, 'text-anchor': vertical ? 'start' : 'middle',
-    'dominant-baseline': vertical ? 'middle' : 'auto', 'font-family': 'Tahoma',
-  }, label);
-  g.append(txt);
+const fmt = (v) => String(r2(v));
+
+/** A dimension with arrows and its value, in screen pixels; key: the field it belongs to (highlighted with it) */
+function dim(g, key, x1, y1, x2, y2, label) {
+  const d = sv('g', { class: 'dim', 'data-dim': key });
+  d.append(sv('line', { x1, y1, x2, y2, 'marker-start': 'url(#arr)', 'marker-end': 'url(#arr)' }));
+  const vertical = x1 === x2;
+  d.append(sv('text', {
+    x: vertical ? x1 + 6 : (x1 + x2) / 2, y: vertical ? (y1 + y2) / 2 : y1 - 5,
+    'text-anchor': vertical ? 'start' : 'middle', 'dominant-baseline': vertical ? 'middle' : 'auto',
+  }, label));
+  g.append(d);
 }
 
+/** The roll as it comes out of the printer: a few prints, labels numbered in print order, the sizes readable */
 export function mediaDiagram(m) {
   const L = layout(m);
-  const rows = 2;
-  const pad = 14;
-  const W = m.linerW + pad * 2 + 16;
-  const H = rows * m.labelH + (rows - 1) * m.rowGap + pad * 2 + 10;
-  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, class: 'media-svg', direction: 'ltr' });
+  const prints = m.rows > 1 ? 2 : 3;
+  const gapV = m.gapType === 'continuous' ? 0 : m.rowGap;
+  const lenMM = 4 + prints * L.pageH + (prints - 1) * gapV + 4;
+  const minX = Math.min(0, L.xs[0]), maxX = Math.max(m.linerW, L.xs[m.cols - 1] + m.labelW);
+  const spanW = Math.max(1, maxX - minX);
+  const left = 22, right = 64, top = 58, bottom = 10;
+  const s = Math.max(0.4, Math.min(430 / spanW, 330 / lenMM));
+  const W = Math.round(left + spanW * s + right), H = Math.round(top + lenMM * s + bottom);
+  const X = (mm) => left + (mm - minX) * s;
+  const Y = (mm) => top + (4 + mm) * s;
+  const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'media-svg', direction: 'ltr' });
   const defs = sv('defs', {});
-  const mk = sv('marker', { id: 'arr', viewBox: '0 0 6 6', refX: 3, refY: 3, markerWidth: 4, markerHeight: 4, orient: 'auto-start-reverse' });
-  mk.append(sv('path', { d: 'M0,0 L6,3 L0,6 z', fill: '#1f5fbf' }));
+  const mk = sv('marker', { id: 'arr', viewBox: '0 0 6 6', refX: 3, refY: 3, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' });
+  mk.append(sv('path', { d: 'M0,0 L6,3 L0,6 z', class: 'arr' }));
   defs.append(mk);
   svg.append(defs);
-  const ox = pad, oy = pad + 4;
-  const rollH = rows * m.labelH + (rows - 1) * m.rowGap + 6;
-  svg.append(sv('rect', { x: ox, y: oy - 3, width: m.linerW, height: rollH, fill: '#d9dee5', stroke: '#a9b3bf', 'stroke-width': 0.3 }));
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < m.cols; c++) {
-      const x = ox + L.xs[c], y = oy + r * (m.labelH + m.rowGap);
-      svg.append(sv('rect', { x, y, width: m.labelW, height: m.labelH, rx: m.radius, fill: '#fff', stroke: '#7d8a99', 'stroke-width': 0.3 }));
-      if (r === 0) svg.append(sv('text', { x: x + m.labelW / 2, y: y + m.labelH / 2, 'font-size': Math.min(9, m.labelH * 0.4), 'text-anchor': 'middle', 'dominant-baseline': 'middle', fill: '#9aa5b1', 'font-family': 'Tahoma' }, String(c + 1)));
+  svg.append(sv('rect', { x: X(0), y: top, width: m.linerW * s, height: lenMM * s, class: 'liner', 'data-dim': 'linerW' }));
+  // The labels, numbered in the order they are printed
+  let n = 0;
+  for (let p = 0; p < prints; p++) {
+    const y0 = p * (L.pageH + gapV);
+    for (const yr of L.ys) {
+      L.xs.forEach((x) => {
+        const out = x < -0.05 || x + m.labelW > m.linerW + 0.05;
+        svg.append(sv('rect', {
+          x: X(x), y: Y(y0 + yr), width: m.labelW * s, height: m.labelH * s, rx: Math.min(m.radius * s, 8),
+          class: 'lbl' + (out ? ' out' : ''), 'data-dim': n === 0 ? 'labelW labelH radius' : null,
+        }));
+        svg.append(sv('text', {
+          x: X(x + m.labelW / 2), y: Y(y0 + yr + m.labelH / 2), class: 'num', 'font-size': Math.max(9, Math.min(22, m.labelH * s * 0.45)),
+        }, String(++n)));
+      });
     }
   }
+  // One print: what the printer prints at once
+  const fr = sv('g', { class: 'print-frame', 'data-dim': 'perPrint' });
+  fr.append(sv('rect', { x: X(minX) - 5, y: Y(0) - 5, width: spanW * s + 10, height: L.pageH * s + 10, rx: 6 }));
+  fr.append(sv('text', { x: X(minX) - 5, y: Y(0) - 10 }, t('media.onePrint', { n: perPrint(m) })));
+  svg.append(fr);
+  // Sizes
   const g = sv('g', {});
-  dim(g, ox, oy - 8, ox + m.linerW, oy - 8, `${m.linerW}`);
-  const yb = oy + m.labelH + m.rowGap / 2;
-  if (m.marginL > 0.05) dim(g, ox, yb + m.labelH * 0.55, ox + L.xs[0], yb + m.labelH * 0.55, `${m.marginL}`);
-  dim(g, ox + L.xs[0], yb + m.labelH * 0.3, ox + L.xs[0] + m.labelW, yb + m.labelH * 0.3, `${m.labelW}`);
-  if (m.cols > 1 && m.colGap > 0.05) dim(g, ox + L.xs[0] + m.labelW, yb + m.labelH * 0.55, ox + L.xs[1], yb + m.labelH * 0.55, `${m.colGap}`);
-  if (Math.abs(L.marginR) > 0.05) {
-    const lastEnd = ox + L.xs[m.cols - 1] + m.labelW;
-    dim(g, lastEnd, yb + m.labelH * 0.8, ox + m.linerW, yb + m.labelH * 0.8, `${L.marginR}`);
-  }
-  const xr = ox + m.linerW + 3;
-  dim(g, xr, oy, xr, oy + m.labelH, `${m.labelH}`, true);
-  if (m.rowGap > 0.05) dim(g, xr, oy + m.labelH, xr, oy + m.labelH + m.rowGap, `${m.rowGap}`, true);
+  dim(g, 'linerW', X(0), 22, X(m.linerW), 22, `${fmt(m.linerW)} mm`);
+  const lx = X(L.xs[0]), ly = Y(0);
+  dim(g, 'labelW', lx, ly + 18, lx + m.labelW * s, ly + 18, fmt(m.labelW));
+  const xr = X(maxX) + 10;
+  dim(g, 'labelH', xr, Y(0), xr, Y(m.labelH), fmt(m.labelH));
+  if (gapV > 0.05) dim(g, 'rowGap', xr, Y(m.labelH), xr, Y(m.labelH + m.rowGap), fmt(m.rowGap));
+  const yc = Y(m.labelH * 0.72);
+  if (m.cols > 1 && m.colGap > 0.05) dim(g, 'colGap', X(L.xs[0] + m.labelW), yc, X(L.xs[1]), yc, fmt(m.colGap));
+  if (m.marginL > 0.05) dim(g, 'margin', X(0), yc, X(L.xs[0]), yc, fmt(m.marginL));
+  if (L.marginR > 0.05) dim(g, 'margin', X(L.xs[m.cols - 1] + m.labelW), yc, X(m.linerW), yc, fmt(L.marginR));
   svg.append(g);
-  // Paper feed direction
-  svg.append(sv('line', { x1: 5, y1: oy, x2: 5, y2: oy + Math.min(rollH, 40), stroke: '#6b7684', 'stroke-width': 0.4, 'marker-end': 'url(#arr)' }));
   return svg;
+}
+
+/** Mark the parts of the diagram that belong to a field (key) */
+export function highlightDiagram(root, key) {
+  root.querySelectorAll('[data-dim]').forEach((el) => {
+    el.classList.toggle('hl', !!key && (el.getAttribute('data-dim') || '').split(' ').includes(key));
+  });
 }
 
 // ---------------------------------------------------------------- layout test print
@@ -137,15 +175,16 @@ export function layoutTestCanvas(m, dpi, prof = {}) {
   const L = layout(m);
   const c = document.createElement('canvas');
   c.width = Math.round(m.linerW * dpmm);
-  c.height = Math.round(m.labelH * dpmm);
+  c.height = Math.round(L.pageH * dpmm);
   const g = c.getContext('2d');
   g.fillStyle = '#fff';
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#000';
   g.strokeStyle = '#000';
   g.lineWidth = Math.max(2, 0.35 * dpmm);
-  for (let i = 0; i < m.cols; i++) {
-    const x = (L.xs[i] + (prof.offX || 0)) * dpmm, y = (prof.offY || 0) * dpmm;
+  for (let k = 0; k < perPrint(m); k++) {
+    const i = k % m.cols;
+    const x = (L.xs[i] + (prof.offX || 0)) * dpmm, y = (L.ys[Math.floor(k / m.cols)] + (prof.offY || 0)) * dpmm;
     const w = m.labelW * dpmm, hh = m.labelH * dpmm;
     g.lineWidth = Math.max(1, 0.2 * dpmm);
     g.strokeRect(x, y, w, hh);
@@ -171,7 +210,7 @@ export function layoutTestCanvas(m, dpi, prof = {}) {
     const big = Math.min(hh * 0.4, w * 0.3);
     g.font = `bold ${big}px Tahoma`;
     g.textAlign = 'center';
-    g.fillText(String(i + 1), x + w / 2, y + hh / 2 + big * 0.05);
+    g.fillText(String(k + 1), x + w / 2, y + hh / 2 + big * 0.05);
     const small = Math.max(10, Math.min(hh * 0.12, 3 * dpmm));
     g.font = `${small}px Tahoma`;
     g.fillText('▲ ' + t('media.testTop'), x + w / 2, y + 6 * dpmm + small / 2);
@@ -181,68 +220,166 @@ export function layoutTestCanvas(m, dpi, prof = {}) {
 }
 
 // ---------------------------------------------------------------- "Rolls" dialog
+// Common rolls to start from: labels across, one label's width and height, roll width, gap between labels across
+const COMMON = [
+  [1, 100, 50, 100, 0], [1, 100, 100, 100, 0], [1, 100, 150, 100, 0], [1, 80, 50, 80, 0], [1, 58, 40, 58, 0],
+  [1, 40, 30, 40, 0], [2, 50, 25, 104, 2], [2, 40, 30, 84, 2], [3, 32, 25, 104, 2],
+];
+
+const PAPER_ICONS = {
+  gap: '<svg viewBox="0 0 44 30"><rect x="9" y="0.5" width="26" height="29" fill="#d9dee5"/><rect x="11" y="2" width="22" height="12" rx="1.5" fill="#fff" stroke="#7d8a99"/><rect x="11" y="16" width="22" height="12" rx="1.5" fill="#fff" stroke="#7d8a99"/></svg>',
+  bline: '<svg viewBox="0 0 44 30"><rect x="11" y="0.5" width="22" height="29" fill="#fff" stroke="#7d8a99"/><rect x="11" y="13" width="7" height="3.5" fill="#222"/><line x1="11" y1="14.7" x2="33" y2="14.7" stroke="#7d8a99" stroke-dasharray="2 2"/></svg>',
+  continuous: '<svg viewBox="0 0 44 30"><rect x="11" y="0.5" width="22" height="29" fill="#fff" stroke="#7d8a99"/></svg>',
+};
+
+/** Name made from the layout, e.g. "Two across 50×25" */
+export function autoName(m) {
+  const size = dims(m.labelW, m.labelH);
+  if (m.rows > 1) return `${tRaw('media.grid', { cols: m.cols, rows: m.rows })} ${size}`;
+  if (m.cols === 1) return tRaw('media.single', { size });
+  if (m.cols === 2) return tRaw('media.double', { size });
+  return tRaw('media.multi', { n: m.cols, size });
+}
+
+/** "2 across", "2 across × 2 down", or nothing for one label in each print */
+export const rollGrid = (m) => (m.rows > 1 ? t('media.grid', { cols: m.cols, rows: m.rows }) : m.cols > 1 ? t('page.cols', { n: m.cols }) : '');
+
+/** "2 across · 50×25" */
+export const rollSummary = (m) => [rollGrid(m), dims(m.labelW, m.labelH)].filter(Boolean).join(' · ');
+
+/** The labels in each print as a small picture */
+const miniGrid = (m) => h('span', { class: 'mini-grid', style: { gridTemplateColumns: `repeat(${m.cols}, 1fr)` }, 'aria-hidden': 'true' },
+  ...Array.from({ length: perPrint(m) }, () => h('i')));
+
+/** Labels in the middle of the roll: equal space left and right */
+const centeredOnRoll = (m) => Math.abs(m.marginL - (m.linerW - labelsWidth(m)) / 2) < 0.06;
+
 /** onDone(selectedId) after saving */
 export async function openMediaManager(selectId, onDone) {
   let list = mediaList();
   let cur = list.find((m) => m.id === selectId) || list[0];
   const printersInfo = await loadPrinters();
+  let prof = profileFor(pickDefaultPrinter(printersInfo));
   const listBox = h('div', { class: 'media-list' });
   const form = h('div', { class: 'media-form' });
   const diagram = h('div', { class: 'media-diagram' });
-  const warn = h('div', { class: 'media-warn' });
-  let prof = profileFor(pickDefaultPrinter(printersInfo));
+  // While the window is open: which rolls keep their labels in the middle, and which names follow the layout
+  const centered = new Map(), named = new Map();
+  const isCentered = (m) => { if (!centered.has(m)) centered.set(m, centeredOnRoll(m)); return centered.get(m); };
+  const isNamed = (m) => { if (!named.has(m)) named.set(m, !m.name || m.name === autoName(m)); return named.get(m); };
+  let nameInp = null, fitLine = null, lit = null;
 
-  const drawList = () => {
-    listBox.replaceChildren(...list.map((m) => h('button', {
-      class: 'media-item' + (m === cur ? ' on' : ''), onclick: () => { cur = m; drawAll(); },
-    }, h('b', {}, m.name), h('span', { class: 'muted' }, `${m.cols > 1 ? t('page.cols', { n: m.cols }) + ' · ' : ''}${dims(m.labelW, m.labelH)}`))));
+  const highlight = (key) => { lit = key; highlightDiagram(diagram, key); };
+  const hookDim = (el, key) => {
+    el.addEventListener('focusin', () => highlight(key));
+    el.addEventListener('focusout', () => highlight(null));
+    el.addEventListener('mouseenter', () => highlight(key));
+    el.addEventListener('mouseleave', () => { if (!el.contains(document.activeElement)) highlight(null); });
+    return el;
   };
+
+  const drawList = () => listBox.replaceChildren(...list.map((m) => h('button', {
+    class: 'media-item' + (m === cur ? ' on' : ''), type: 'button', onclick: () => { cur = m; drawAll(); },
+  }, miniGrid(m), h('span', { class: 'mi-text' }, h('b', {}, m.name || autoName(m)),
+    h('span', { class: 'muted' }, `${rollSummary(m)} · ${t('media.rollW', { n: fmt(m.linerW) })}`)))));
+
   const drawDiagram = () => {
-    diagram.replaceChildren(mediaDiagram(cur));
-    const L = layout(cur);
-    const pr = problems(cur, prof.maxWidth || 108);
-    warn.replaceChildren(
-      h('div', { class: 'muted' }, t('media.marginRight', { n: L.marginR })),
-      ...pr.map((p) => h('div', { class: 'err-text' }, p)));
+    diagram.replaceChildren(mediaDiagram(cur), h('div', { class: 'muted media-feed' }, '\u2193 ' + t('media.feedDir')));
+    highlight(lit);
   };
-  const num = (key, label, opts = {}) => {
-    const inp = h('input', { class: 'inp num', type: 'number', step: opts.step || 0.5, value: cur[key], min: opts.min ?? 0 });
+
+  // Under the roll width: how the labels fit, or what to change when they do not
+  const drawFit = () => {
+    const L = layout(cur), need = labelsWidth(cur);
+    const sides = isCentered(cur) ? 0 : 2 * Math.max(0, cur.marginL);
+    const lines = [];
+    if (cur.marginL < -0.05 || L.marginR < -0.05) {
+      const roll = r2(need + sides);
+      const label = Math.floor(((cur.linerW - sides - (cur.cols - 1) * cur.colGap) / cur.cols) * 10) / 10;
+      lines.push(h('div', { class: 'err-text' }, t('media.noFit', { need: fmt(need), width: fmt(cur.linerW) })),
+        h('div', { class: 'btn-row wrap' },
+          h('button', { class: 'chip', type: 'button', onclick: () => { cur.linerW = roll; changed(true); } }, t('media.fixRoll', { n: fmt(roll) })),
+          label > 0 ? h('button', { class: 'chip', type: 'button', onclick: () => { cur.labelW = label; changed(true); } }, t('media.fixLabel', { n: fmt(label) })) : null));
+    } else if (isCentered(cur)) {
+      lines.push(h('div', { class: 'muted' }, t('media.fits', { used: fmt(need), side: fmt(cur.marginL) })));
+    } else {
+      lines.push(h('div', { class: 'muted' }, t('media.fitsLR', { used: fmt(need), left: fmt(cur.marginL), right: fmt(L.marginR) })));
+    }
+    for (const p of problems(cur, prof.maxWidth || 108, true)) lines.push(h('div', { class: 'err-text' }, p));
+    fitLine.replaceChildren(...lines);
+  };
+
+  // Something changed: keep the labels in the middle, let the name follow, redraw (rebuild: fields that come and go)
+  const changed = (rebuild = false) => {
+    Object.assign(cur, normMedia(cur));
+    if (isCentered(cur)) cur.marginL = r2((cur.linerW - labelsWidth(cur)) / 2);
+    if (isNamed(cur)) {
+      cur.name = autoName(cur);
+      if (nameInp) nameInp.value = cur.name;
+    }
+    if (rebuild) drawForm(); else drawFit();
+    drawDiagram();
+    drawList();
+  };
+
+  const num = (key, label, dimKey, opts = {}) => {
+    const inp = h('input', { class: 'inp num', type: 'number', step: opts.step ?? 0.5, min: opts.min ?? 0, value: cur[key] });
     inp.addEventListener('input', () => {
       const v = parseFloat(inp.value);
       if (Number.isNaN(v)) return;
       cur[key] = v;
-      if (key === 'cols') { Object.assign(cur, normMedia(cur)); drawForm(); }
-      drawDiagram();
-      drawList();
+      changed();
     });
-    return h('label', { class: 'field' }, h('span', {}, label), h('span', { class: 'num-wrap' }, inp, h('em', {}, opts.unit ?? 'mm')));
+    return hookDim(h('label', { class: 'field' }, h('span', {}, label), h('span', { class: 'num-wrap' }, inp, h('em', {}, 'mm'))), dimKey);
   };
+
+  const stepper = (key, label, min, max) => {
+    const set = (v) => { cur[key] = clamp(Math.round(v) || min, min, max); changed(true); };
+    const val = h('input', { class: 'inp num', type: 'number', min, max, step: 1, value: cur[key], 'aria-label': label });
+    val.addEventListener('change', () => set(parseFloat(val.value)));
+    return h('div', { class: 'field' }, h('span', {}, label), h('div', { class: 'stepper' },
+      h('button', { class: 'btn', type: 'button', 'aria-label': `${label} \u2212`, disabled: cur[key] <= min, onclick: () => set(cur[key] - 1) }, '\u2212'),
+      val,
+      h('button', { class: 'btn', type: 'button', 'aria-label': `${label} +`, disabled: cur[key] >= max, onclick: () => set(cur[key] + 1) }, '+')));
+  };
+
   const drawForm = () => {
-    const name = h('input', { class: 'inp', value: cur.name });
-    name.addEventListener('input', () => { cur.name = name.value; drawList(); });
-    const type = h('select', { class: 'inp' }, ...gapTypes().map(([v, l]) => h('option', { value: v, selected: cur.gapType === v }, l)));
-    type.addEventListener('change', () => { cur.gapType = type.value; });
-    const offs = cur.cols > 1 ? h('div', { class: 'media-offs' }, h('span', { class: 'muted' }, t('media.colOffsets')),
+    isNamed(cur);   // decided before anything changes: a name made from the layout keeps following it
+    nameInp = h('input', { class: 'inp', value: cur.name });
+    nameInp.addEventListener('input', () => { cur.name = nameInp.value; named.set(cur, false); drawList(); });
+    const sec = (title, ...kids) => h('section', { class: 'ms-sec' }, h('h4', {}, title), ...kids);
+    const cont = cur.gapType === 'continuous';
+    fitLine = h('div', { class: 'ms-fit' });
+    const center = h('input', { type: 'checkbox', checked: isCentered(cur) });
+    center.addEventListener('change', () => { centered.set(cur, center.checked); changed(true); });
+    const gaps = [cur.cols > 1 ? num('colGap', t('media.colGap'), 'colGap') : null,
+      cont ? null : num('rowGap', t(cur.gapType === 'bline' ? 'media.blineH' : 'media.rowGap'), 'rowGap')].filter(Boolean);
+    const offsets = cur.cols > 1 ? h('div', { class: 'media-offs' }, h('span', { class: 'muted' }, t('media.colOffsets')),
       ...cur.colOffsets.map((v, i) => {
         const inp = h('input', { class: 'inp num', type: 'number', step: 0.1, value: v, title: t('media.col', { n: i + 1 }) });
-        inp.addEventListener('input', () => { cur.colOffsets[i] = parseFloat(inp.value) || 0; drawDiagram(); });
+        inp.addEventListener('input', () => { cur.colOffsets[i] = parseFloat(inp.value) || 0; changed(); });
         return h('label', { class: 'field' }, h('span', {}, t('media.col', { n: i + 1 })), inp);
       })) : null;
-    form.replaceChildren(
-      h('label', { class: 'field' }, h('span', {}, t('media.name')), name),
-      h('div', { class: 'prow' }, num('linerW', t('media.linerW')), num('cols', t('media.cols'), { step: 1, min: 1, unit: '×' })),
-      h('div', { class: 'prow' }, num('labelW', t('media.labelW')), num('labelH', t('media.labelH'))),
-      h('div', { class: 'prow' }, num('marginL', t('media.marginL')), num('colGap', t('media.colGap'))),
-      h('div', { class: 'prow' }, num('rowGap', t('media.rowGap')), h('label', { class: 'field' }, h('span', {}, t('media.gapType')), type)),
-      h('div', { class: 'prow' }, num('radius', t('media.radius')), h('button', {
-        class: 'btn btn-ghost', onclick: () => {
-          const used = cur.cols * cur.labelW + (cur.cols - 1) * cur.colGap;
-          cur.marginL = r2((cur.linerW - used) / 2);
-          drawForm();
-          drawDiagram();
-        },
-      }, t('media.center'))),
-      offs);
+    form.replaceChildren(...[
+      h('label', { class: 'field' }, h('span', {}, t('media.name')), nameInp),
+      sec(t('media.perPrint'), hookDim(h('div', { class: 'ms-grid' },
+        stepper('cols', t('media.across'), 1, 12), h('span', { class: 'ms-x' }, '\u00d7'), stepper('rows', t('media.down'), 1, 4), miniGrid(cur)), 'perPrint')),
+      sec(t('media.oneLabel'), h('div', { class: 'ms-pair' },
+        num('labelW', t('props.width'), 'labelW'), h('span', { class: 'ms-x' }, '\u00d7'), num('labelH', t('props.height'), 'labelH'))),
+      gaps.length ? sec(t('media.gaps'), h('div', { class: 'prow' }, ...gaps)) : null,
+      sec(t('media.roll'), h('div', { class: 'prow' }, num('linerW', t('media.linerW'), 'linerW'),
+        isCentered(cur) ? h('span') : num('marginL', t('media.marginL'), 'margin', { min: -50 })),
+      h('label', { class: 'check' }, center, h('span', {}, t('media.centered'))), fitLine),
+      sec(t('media.paper'), h('div', { class: 'paper-cards' }, ...['gap', 'bline', 'continuous'].map((k) => h('button', {
+        class: 'paper-card' + (cur.gapType === k ? ' on' : ''), type: 'button', 'aria-pressed': String(cur.gapType === k),
+        onclick: () => { cur.gapType = k; changed(true); },
+      }, h('span', { class: 'pc-ico', html: PAPER_ICONS[k] }), h('span', {}, t('media.gap.' + k)))))),
+      h('details', { class: 'print-adv' }, h('summary', {}, t('media.more')),
+        h('div', { class: 'prow' }, num('radius', t('media.radius'), 'radius'),
+          cont ? h('span') : num('gapOffset', t('media.gapOffset'), 'rowGap', { min: -50, step: 0.1 })),
+        offsets),
+    ].filter(Boolean));
+    drawFit();
   };
   const drawAll = () => { drawList(); drawForm(); drawDiagram(); };
 
@@ -250,7 +387,7 @@ export async function openMediaManager(selectId, onDone) {
   const printerSel = h('select', { class: 'inp' }, ...printersInfo.printers.map((p) => h('option', { value: p.name, selected: p.name === prof.printer }, p.name)));
   const method = h('select', { class: 'inp' }, h('option', { value: 'tspl' }, t('print.methodTspl')), h('option', { value: 'network' }, t('print.methodNetwork')), h('option', { value: 'driver' }, t('print.methodDriver')));
   method.value = prof.method;
-  printerSel.addEventListener('change', () => { prof = profileFor(printerSel.value); method.value = prof.method; drawDiagram(); });
+  printerSel.addEventListener('change', () => { prof = profileFor(printerSel.value); method.value = prof.method; drawFit(); });
   const settingsNow = () => ({ ...prof, method: method.value, printer: printerSel.value, ...tsplOf(normMedia(cur)) });
   const command = async (cmd, okMsg) => {
     try {
@@ -277,30 +414,38 @@ export async function openMediaManager(selectId, onDone) {
       // Loaded on demand: the printer control window itself uses this module
       h('button', { class: 'btn btn-ghost', onclick: async () => (await import('./printercontrol.js')).openPrinterControl(printerSel.value, cur.id) }, t('pc.open'))));
 
-  const add = (base) => {
-    const m = normMedia({ ...(base ? clone(base) : MEDIA_DEFAULT), id: uid(), name: base ? `${base.name}${t('media.copySuffix')}` : t('media.newRoll') });
+  const add = (base, name) => {
+    const m = normMedia({ ...(base ? clone(base) : MEDIA_DEFAULT), id: uid(), name: name ?? `${base.name}${t('media.copySuffix')}` });
     list.push(m);
     cur = m;
     drawAll();
   };
+  const common = h('details', { class: 'media-common' }, h('summary', {}, t('media.common')),
+    h('div', { class: 'media-list' }, ...COMMON.map(([cols, w, hh, roll, gap]) => {
+      const m = normMedia({ cols, labelW: w, labelH: hh, linerW: roll, colGap: gap, marginL: r2((roll - cols * w - (cols - 1) * gap) / 2), rowGap: 2, radius: 2 });
+      return h('button', { class: 'media-item', type: 'button', onclick: () => add(m, autoName(m)) },
+        miniGrid(m), h('span', { class: 'mi-text' }, h('b', {}, autoName(m)), h('span', { class: 'muted' }, t('media.rollW', { n: roll }))));
+    })));
   drawAll();
   const res = await dialog({
-    title: t('media.title'), wide: true,
+    title: t('media.title'), wide: true, onOpen: (box) => box.classList.add('dlg-rolls'),
     body: h('div', { class: 'media-dlg' },
-      h('div', { class: 'media-side' }, listBox,
+      h('div', { class: 'media-side' }, h('h4', {}, t('media.mine')), listBox,
         h('div', { class: 'btn-row wrap' },
-          h('button', { class: 'chip', onclick: () => add(null) }, '+ ' + t('media.newRoll')),
-          h('button', { class: 'chip', onclick: () => add(cur) }, t('common.copy')),
+          h('button', { class: 'chip', type: 'button', onclick: () => add(normMedia(MEDIA_DEFAULT), autoName(normMedia(MEDIA_DEFAULT))) }, '+ ' + t('media.newRoll')),
+          h('button', { class: 'chip', type: 'button', onclick: () => add(cur) }, t('common.copy')),
           h('button', {
-            class: 'chip danger', onclick: async () => {
+            class: 'chip danger', type: 'button', onclick: async () => {
               if (list.length < 2) return;
               if (!(await confirmBox(t('media.deleteTitle'), t('media.deleteText', { name: cur.name }), t('common.delete'), true))) return;
               list = list.filter((m) => m !== cur);
               cur = list[0];
               drawAll();
             },
-          }, t('common.delete')))),
-      h('div', { class: 'media-main' }, form, diagram, warn, tools)),
+          }, t('common.delete'))),
+        common),
+      form,
+      h('div', { class: 'media-view' }, diagram, tools)),
     buttons: [{ label: t('common.save'), value: true, primary: true }, { label: t('common.cancel'), value: false }],
   });
   if (!res) return null;

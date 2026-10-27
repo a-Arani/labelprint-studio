@@ -6,7 +6,7 @@ import {
 } from './util.js';
 import { ICONS } from './icons.js';
 import { bbox } from './render.js';
-import { mediaList, openMediaManager } from './media.js';
+import { mediaList, openMediaManager, perPrint, rollGrid } from './media.js';
 import { t, isRTL, lang } from './i18n.js';
 import { openImageEditor, turnImage, mirrorImage, resetImage } from './imageeditor.js';
 import { fxOf, isEdited, MODES } from './imagefx.js';
@@ -693,7 +693,7 @@ function pagePanel() {
   const ms = mediaList();
   const m = ms.find((x) => x.id === p.mediaId);
   const turned = m ? Math.abs(p.w - m.labelH) < 0.6 && Math.abs(p.h - m.labelW) < 0.6 && Math.abs(m.labelW - m.labelH) > 0.6 : false;
-  const mediaSel = sel('media', m ? m.id : '', [['', t('page.manual')], ...ms.map((x) => [x.id, x.cols > 1 ? `${x.name} (${t('page.cols', { n: x.cols })})` : x.name])], (id) => {
+  const mediaSel = sel('media', m ? m.id : '', [['', t('page.manual')], ...ms.map((x) => [x.id, perPrint(x) > 1 ? `${x.name} (${rollGrid(x)})` : x.name])], (id) => {
     if (!id) { setPage(() => { delete p.mediaId; }); return; }
     const nm = ms.find((x) => x.id === id);
     // Keep the current design orientation (landscape or portrait)
@@ -706,7 +706,7 @@ function pagePanel() {
     S.scaleContent = v;
     try { localStorage.setItem('ls.scaleContent', v ? '1' : ''); } catch (e) { /* storage unavailable */ }
   }, 'scaleContent');
-  const info = m ? [m.cols > 1 ? t('page.cols', { n: m.cols }) : null, t('page.rollInfo', { size: dims(m.labelW, m.labelH), width: m.linerW })].filter(Boolean).join(' · ') : null;
+  const info = m ? [rollGrid(m) || null, t('page.rollInfo', { size: dims(m.labelW, m.labelH), width: m.linerW })].filter(Boolean).join(' · ') : null;
   return section(t('page.title'),
     h('div', { class: 'prow prow-btn' }, field(t('page.roll'), mediaSel), h('button', { class: 'btn btn-ghost', onclick: () => openMediaManager(p.mediaId, () => buildProps()) }, t('page.rollTypes'))),
     info ? h('div', { class: 'var-sample' }, info) : null,

@@ -84,12 +84,12 @@ Thermal printers print only black dots, so every picture has its own **black-and
 <td><img src="docs/images/image-editor.png" alt="Image editor: crop handles, brightness and contrast, black and white dithering for thermal printing"></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/rolls.png" alt="Label roll setup with labels per row, label size and gaps"></td>
+<td><img src="docs/screenshots/rolls.png" alt="Label roll setup: labels in each print, the size of one label, gaps and roll width, drawn with the print order"></td>
 <td>
 
-### Any label roll, several labels per row
+### Any label roll, several labels across
 
-Tell the app how your roll looks (roll width, labels across, label size, gaps and margins) and see it drawn to scale. Print one, two or more labels per row.
+Describe your roll the way you see it: **how many labels in each print** (across, and down if ever needed), **the size of one label**, the gaps and the roll width. A large picture shows the roll with the labels numbered in print order and highlights each size as you type it. If the numbers do not add up, one click fixes them. Start from a common size, or from your own rolls.
 
 Designed in portrait but the roll is landscape? LabelPrint Studio **rotates the design automatically** to fit.
 
@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.7-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.2.0-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -205,7 +205,7 @@ Run **`Stop LabelPrint Studio.bat`** in the installation folder (it ends every r
 1. Click **New** and enter the label size in millimetres (for example 100 × 50), or pick a common size.
 2. Add text, a barcode or a QR code from the toolbar on the left.
 3. For numbered labels, click **+ Counter** in the right panel and insert it into a text or barcode.
-4. In the right panel, choose your **roll**, or click **Rolls…** to describe it (labels per row, label size, gaps).
+4. In the right panel, choose your **roll**, or click **Rolls…** to describe it (labels in each print, the size of one label, gaps).
 5. Click **Print**, select your printer, choose **Direct (TSPL)** for a TSC printer, set the number range and press **Print**.
 
 > **Tip:** after loading a new roll into a TSC printer, open **Rolls… → Printer tools → Calibrate sensor**, then **Print layout test** to check the position before printing a large batch.
@@ -231,9 +231,9 @@ Add a **Counter** variable, insert it into a barcode (or text), and enter the ra
 </details>
 
 <details>
-<summary><b>Can I print two or more labels per row?</b></summary>
+<summary><b>Can I print two or more labels across the roll?</b></summary>
 
-Yes. Describe your roll under **Rolls…** (labels per row, label width, gaps). The app fills each row in sequence, or prints the same label across the row.
+Yes. Under **Rolls…**, set **Labels in each print**, for example *2 across × 1 down*, and the size of **one** label. The app fills each print in sequence (1 2 | 3 4), or prints the same label across it.
 </details>
 
 <details>

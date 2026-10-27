@@ -3,6 +3,21 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.0] - 2026-10-27
+
+### Changed
+- **A new Rolls window.** The roll is described the way you see it: **labels in each print** (across × down, with − and + buttons and a small picture), **the size of one label**, the gaps between labels side by side and down the roll, and the **roll width** with *Labels in the middle of the roll*. A large picture shows the roll with the labels numbered in print order, marks what one print contains, and highlights each size while you edit it.
+- When the labels do not fit on the roll, the window says by how much and offers two fixes: make the roll wider, or each label narrower.
+- *Start from a common size*: single, two-across and three-across rolls to start from. A roll's name follows its layout until you rename it.
+- The paper type is chosen from three pictures (gaps, black mark, continuous); corner radius, the fine offset of each column and the gap offset are under *More*.
+
+### Added
+- A print can hold more than one row of labels (*Down* in *Labels in each print*); the print preview, the test print, the layout test and the printer's paper size follow it. Nearly every roll uses 1.
+
+### Fixed
+- A stray "null" under the Rolls form.
+- Number boxes no longer show the browser's spin arrows over their unit.
+
 ## [2.1.7] - 2026-10-27
 
 ### Changed
@@ -107,6 +122,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.2.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.2.0
 [2.1.7]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.7
 [2.1.6]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.6
 [2.1.5]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.5

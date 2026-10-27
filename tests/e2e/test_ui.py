@@ -298,3 +298,59 @@ def test_click_on_empty_space_selects_the_top_level(page, app_url):
     page.locator(".lib-folder", has_text="Top level").wait_for()
     names = page.evaluate("async () => (await (await fetch('/api/library/tree')).json()).folders.map((f) => f.name)")
     assert "Top level" in names
+
+
+def test_rolls_window_and_two_by_two_print(page, app_url):
+    """The Rolls window offers a fix when the labels do not fit; a roll with 2 across x 2 down prints 4 labels at once."""
+    plain = lambda s: re.sub("[⁦-⁩]", "", s)  # noqa: E731
+    page.goto(app_url)
+    page.wait_for_selector("#splash", state="detached", timeout=10000)
+    page.locator(".lib-file", has_text="Box label").click()
+    page.wait_for_function("() => !document.body.classList.contains('no-doc')")
+    page.evaluate("async () => { const m = await import('/js/media.js'); m.openMediaManager(); }")
+    dlg = page.locator(".dlg-rolls")
+    dlg.wait_for()
+    assert "null" not in dlg.inner_text()
+    dlg.locator(".media-side .chip").first.click()
+    dlg.locator(".stepper").nth(0).locator("button").last.click()
+    dlg.locator(".stepper").nth(1).locator("button").last.click()
+    dlg.locator(".ms-pair input").first.fill("50")
+    dlg.locator(".ms-pair input").last.fill("25")
+    dlg.locator("label.field", has_text="Between labels side by side").locator("input").fill("2")
+    dlg.locator("label.field", has_text="Roll width").locator("input").fill("100")
+    assert "need 102 mm" in plain(dlg.locator(".ms-fit").inner_text())
+    dlg.locator(".ms-fit .chip").first.click()
+    assert "take 102 mm" in plain(dlg.locator(".ms-fit").inner_text())
+    assert "2 down" in plain(dlg.locator(".media-form input").first.input_value())
+    dlg.locator(".dlg-foot .btn-primary").click()
+    dlg.wait_for(state="detached")
+    roll = page.evaluate("async () => { const m = await import('/js/media.js'); const r = m.mediaList().find((x) => x.rows === 2);"
+                         " const st = await import('/js/state.js'); Object.assign(st.S.doc.page, { mediaId: r.id, w: 50, h: 25 }); return r; }")
+    assert (roll["cols"], roll["rows"], roll["linerW"], roll["marginL"]) == (2, 2, 102, 0)
+
+    port, received = fake_printer()
+    page.click("#btn-print")
+    pd = page.locator(".dlg").last
+    pd.locator("select").nth(1).select_option("network")
+    pd.locator("input[placeholder='192.168.1.50']").fill("127.0.0.1")
+    field = lambda text: pd.locator("label.field", has=page.locator("span", has_text=text)).locator("input")  # noqa: E731
+    field("Port").fill(str(port))
+    field("from").fill("11")   # numbers not printed before, so no "print again?" question
+    field(re.compile("^to$")).fill("14")
+    field(re.compile("^to$")).dispatch_event("change")
+    page.wait_for_timeout(500)
+    assert "prints: 1" in plain(pd.locator(".print-count").inner_text())
+    before = received.count(b"BITMAP")
+    pd.locator(".btn-primary").click()
+    for _ in range(100):
+        if received.count(b"BITMAP") > before and received.rstrip().endswith(b"PRINT 1,1"):
+            break
+        time.sleep(0.1)
+    assert b"SIZE 102 mm,52 mm" in received
+    wb, hh, data = printing.decode_tspl_bitmaps(bytes(received))[-1]
+    assert (wb * 8, hh) == (816, 416) and received.count(b"BITMAP") == before + 1
+
+    def ink(x0, x1, y0, y1):
+        return sum(1 for y in range(y0, y1) for x in range(x0, x1) if not (data[y * wb + (x >> 3)] & (0x80 >> (x & 7))))
+    # Labels at 0-50 and 52-102 mm across, 0-25 and 27-52 mm down (8 dots per mm)
+    assert all(ink(x0, x0 + 400, y0, y0 + 200) > 0 for x0 in (0, 416) for y0 in (0, 216))

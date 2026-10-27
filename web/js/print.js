@@ -6,7 +6,7 @@ import {
 import * as logger from './logger.js';
 import { rasterize, toMono, monoToCanvas, monoToBase64, bbox } from './render.js';
 import { loadPrinters, profileFor, saveProfile, pickDefaultPrinter, baseName } from './printers.js';
-import { mediaList, matchMedia, normMedia, layout, problems, tsplOf, openMediaManager } from './media.js';
+import { mediaList, matchMedia, normMedia, layout, perPrint, problems, tsplOf, openMediaManager, rollSummary } from './media.js';
 import { rotOptions, rotValue } from './panels.js';
 import { openPrinterControl } from './printercontrol.js';
 import { t } from './i18n.js';
@@ -63,18 +63,20 @@ function placeCell(src, m, dpmm, o, fitMode) {
   return c;
 }
 
-function composeRow(m, cells, dpmm, prof, shift = NO_SHIFT) {
+/** One print: the labels in order across each row, then the next row down (nearly always a single row) */
+function composePage(m, cells, dpmm, prof, shift = NO_SHIFT) {
   const L = layout(m);
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(m.linerW * dpmm));
-  c.height = Math.max(1, Math.round(m.labelH * dpmm));
+  c.height = Math.max(1, Math.round(L.pageH * dpmm));
   const g = c.getContext('2d');
   g.fillStyle = '#fff';
   g.fillRect(0, 0, c.width, c.height);
   const LW = Math.round(m.labelW * dpmm), LH = Math.round(m.labelH * dpmm);
   cells.forEach((cell, i) => {
     if (!cell) return;
-    const x = Math.round((L.xs[i] + (prof.offX || 0) + shift.x) * dpmm), y = Math.round(((prof.offY || 0) + shift.y) * dpmm);
+    const x = Math.round((L.xs[i % m.cols] + (prof.offX || 0) + shift.x) * dpmm);
+    const y = Math.round((L.ys[Math.floor(i / m.cols)] + (prof.offY || 0) + shift.y) * dpmm);
     // Each label stays inside its own cell
     g.save();
     g.beginPath();
@@ -90,9 +92,13 @@ const NO_SHIFT = { x: 0, y: 0 };
 
 /** Black dots in a 1-bit image; with m and dpmm, only those that land on a label (not on the liner around it) */
 function countInk(mono, m, dpmm) {
-  const cols = m ? layout(m).xs.map((x) => [Math.round(x * dpmm), Math.round((x + m.labelW) * dpmm)]) : null;
+  const L = m ? layout(m) : null;
+  const span = (a, len) => [Math.round(a * dpmm), Math.round((a + len) * dpmm)];
+  const cols = L ? L.xs.map((x) => span(x, m.labelW)) : null;
+  const rows = L ? L.ys.map((y) => span(y, m.labelH)) : null;
   let n = 0;
   for (let y = 0; y < mono.h; y++) {
+    if (rows && !rows.some(([a, b]) => y >= a && y < b)) continue;
     for (let x = 0; x < mono.w; x++) {
       if (!(mono.bits[y * mono.wb + (x >> 3)] & (0x80 >> (x & 7)))) continue;
       if (!cols || cols.some(([a, b]) => x >= a && x < b)) n++;
@@ -101,22 +107,22 @@ function countInk(mono, m, dpmm) {
   return n;
 }
 
-/** Number of labels and rows, without rendering */
-export function plan(recCount, copies, cols, fill) {
+/** Number of labels and prints, without rendering (per: labels in each print) */
+export function plan(recCount, copies, per, fill) {
   if (fill === 'same') {
     const rows = recCount * copies;
-    return { labels: rows * cols, rows, empty: 0 };
+    return { labels: rows * per, rows, empty: 0 };
   }
   const labels = recCount * copies;
-  const rows = Math.ceil(labels / cols);
-  return { labels, rows, empty: rows * cols - labels };
+  const rows = Math.ceil(labels / per);
+  return { labels, rows, empty: rows * per - labels };
 }
 
 /** Render rows one by one: {mono, copies, labels, idx, errors} */
 async function* renderRows(label, recs, cfg, onProgress = () => {}) {
   const { m, o, dpi, fill, copies, fitMode, prof } = cfg;
   const dpmm = dpi / 25.4;
-  const cols = m.cols;
+  const cols = perPrint(m);   // labels in each print
   const identical = !usesVariables(label);
   const cache = new Map();
   const cellOf = async (i) => {
@@ -128,7 +134,7 @@ async function* renderRows(label, recs, cfg, onProgress = () => {}) {
     }
     return cache.get(key);
   };
-  const row = (cells) => toMono(composeRow(m, cells, dpmm, prof, cfg.shift || NO_SHIFT), prof.threshold);
+  const row = (cells) => toMono(composePage(m, cells, dpmm, prof, cfg.shift || NO_SHIFT), prof.threshold);
   if (identical) {
     const p = plan(recs.length, copies, cols, fill);
     const { cell, errors } = await cellOf(0);
@@ -172,11 +178,13 @@ function previewCanvas(m, mono, dpmm, prof) {
   g.fillRect(0, 0, c.width, c.height);
   g.fillStyle = '#fff';
   const L = layout(m);
-  for (let i = 0; i < m.cols; i++) {
-    const x = L.xs[i] * dpmm, w = m.labelW * dpmm, hh = m.labelH * dpmm, r = Math.min(m.radius * dpmm, w / 2, hh / 2);
-    g.beginPath();
-    if (g.roundRect) g.roundRect(x, 0, w, hh, r); else g.rect(x, 0, w, hh);
-    g.fill();
+  for (const y0 of L.ys) {
+    for (const x0 of L.xs) {
+      const x = x0 * dpmm, y = y0 * dpmm, w = m.labelW * dpmm, hh = m.labelH * dpmm, r = Math.min(m.radius * dpmm, w / 2, hh / 2);
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, w, hh, r); else g.rect(x, y, w, hh);
+      g.fill();
+    }
   }
   g.globalCompositeOperation = 'multiply';
   g.drawImage(ink, 0, 0);
@@ -195,8 +203,9 @@ async function browserPrint(label, recs, cfg) {
   document.body.append(frame);
   const d = frame.contentDocument;
   d.open();
-  d.write(`<!doctype html><html><head><style>@page{size:${m.linerW}mm ${m.labelH}mm;margin:0}html,body{margin:0}`
-    + `img{display:block;width:${m.linerW}mm;height:${m.labelH}mm;page-break-after:always;image-rendering:pixelated}</style></head><body>`
+  const pageH = layout(m).pageH;
+  d.write(`<!doctype html><html><head><style>@page{size:${m.linerW}mm ${pageH}mm;margin:0}html,body{margin:0}`
+    + `img{display:block;width:${m.linerW}mm;height:${pageH}mm;page-break-after:always;image-rendering:pixelated}</style></head><body>`
     + urls.map((u) => `<img src="${u}">`).join('') + '</body></html>');
   d.close();
   await new Promise((r) => setTimeout(r, 300));
@@ -260,7 +269,7 @@ export async function openPrint(preset = {}) {
   const fillMedia = (selId) => {
     const ms = mediaList();
     mediaSel.replaceChildren(h('option', { value: 'adhoc' }, t('print.adhoc')),
-      ...ms.map((m) => h('option', { value: m.id }, `${m.name} — ${m.cols > 1 ? t('page.cols', { n: m.cols }) + ' · ' : ''}${dims(m.labelW, m.labelH)}`)));
+      ...ms.map((m) => h('option', { value: m.id }, `${m.name} — ${rollSummary(m)}`)));
     mediaSel.value = ms.some((m) => m.id === selId) ? selId : 'adhoc';
   };
   fillMedia(page.mediaId || (matchMedia(page) || {}).id);
@@ -357,7 +366,8 @@ export async function openPrint(preset = {}) {
   const progress = h('div', { class: 'print-progress', hidden: true }, h('div', { class: 'bar' }), h('span'));
   const errorsBox = h('div', { class: 'print-errors' });
   const fitRow = h('div', { class: 'prow' }, F(t('print.fitLabel'), fitSel), h('span'));
-  const fillRow = h('div', { class: 'prow' }, F(t('print.fillLabel'), fillSel), h('span'));
+  const fillLabel = h('span', {}, t('print.fillLabel'));
+  const fillRow = h('div', { class: 'prow' }, h('label', { class: 'field' }, fillLabel, fillSel), h('span'));
 
   const records = () => buildRecords(label, {
     from: from ? parseFloat(from.value) : undefined,
@@ -375,15 +385,16 @@ export async function openPrint(preset = {}) {
     const m = mediaSel.value === 'adhoc' ? adhocMedia(page, choice, prof) : normMedia(mediaList().find((x) => x.id === mediaSel.value));
     const o = orient(page, m, choice);
     const n = Math.max(1, parseInt(copies.value, 10) || 1);
-    return { m, o, dpi: prof.dpi, fill: m.cols > 1 ? fillSel.value : 'seq', copies: n, fitMode: fitSel.value, prof, shift: { ...shift } };
+    return { m, o, dpi: prof.dpi, fill: perPrint(m) > 1 ? fillSel.value : 'seq', copies: n, fitMode: fitSel.value, prof, shift: { ...shift } };
   };
 
   const describe = (cfg, recCount) => {
     const { m, o } = cfg;
     fitRow.hidden = o.exact;
-    fillRow.hidden = m.cols < 2;
-    const lines = [h('div', {}, t(m.cols > 1 ? 'print.setupCols' : 'print.setup', {
-      design: dims(page.w, page.h), roll: m.name, cols: m.cols, label: dims(m.labelW, m.labelH), rot: ltr(o.rot + '°'),
+    fillRow.hidden = perPrint(m) < 2;
+    fillLabel.textContent = t(m.rows > 1 ? 'media.perPrint' : 'print.fillLabel');
+    const lines = [h('div', {}, t(m.rows > 1 ? 'print.setupGrid' : m.cols > 1 ? 'print.setupCols' : 'print.setup', {
+      design: dims(page.w, page.h), roll: m.name, cols: m.cols, rows: m.rows, label: dims(m.labelW, m.labelH), rot: ltr(o.rot + '°'),
     }))];
     const warns = [...problems(m, prof.maxWidth || 108)];
     if (!o.exact) warns.push(t('print.sizeMismatch', { design: dims(r2(o.dw), r2(o.dh)), label: dims(m.labelW, m.labelH) }));
@@ -395,11 +406,13 @@ export async function openPrint(preset = {}) {
     if (out) warns.push(t('print.outside'));
     for (const w of warns) lines.push(h('div', { class: 'err-text' }, w));
     setupInfo.replaceChildren(...lines);
-    const p = plan(recCount, cfg.copies, m.cols, cfg.fill);
+    const p = plan(recCount, cfg.copies, perPrint(m), cfg.fill);
+    // With more than one row in each print, it counts prints instead of rows
+    const per = m.rows > 1 ? 'Prints' : 'Rows';
     countInfo.textContent = !recCount ? t('print.badRange')
-      : m.cols < 2 ? t('print.total', { n: p.labels })
-        : p.empty ? t('print.totalRowsEmpty', { n: p.labels, rows: p.rows, empty: p.empty })
-          : t('print.totalRows', { n: p.labels, rows: p.rows });
+      : perPrint(m) < 2 ? t('print.total', { n: p.labels })
+        : p.empty ? t(`print.total${per}Empty`, { n: p.labels, rows: p.rows, empty: p.empty })
+          : t(`print.total${per}`, { n: p.labels, rows: p.rows });
     return p;
   };
 
@@ -418,7 +431,7 @@ export async function openPrint(preset = {}) {
       if (token !== previewToken) return;
       if (!shown) {
         // Ink that the printer offsets or the shift push off the label (onto the liner, or off the edge)
-        const design = countInk(toMono(composeRow(cfg.m, row.cells, dpmm, { offX: 0, offY: 0 }), prof.threshold));
+        const design = countInk(toMono(composePage(cfg.m, row.cells, dpmm, { offX: 0, offY: 0 }), prof.threshold));
         const onLabel = countInk(row.mono, cfg.m, dpmm);
         adjustWarn.hidden = design - onLabel <= Math.max(8, design * 0.002);
       }
@@ -445,7 +458,7 @@ export async function openPrint(preset = {}) {
     if (!recs.length) { toast(t('print.badRange'), 'error'); return; }
     testBtn.disabled = true;
     try {
-      const first = recs.slice(0, cfg.m.cols);
+      const first = recs.slice(0, perPrint(cfg.m));
       const it = renderRows(label, first, { ...cfg, copies: 1, fill: 'seq' });
       const { value: row } = await it.next();
       if (row.errors.length) throw new Error(row.errors[0]);
@@ -482,7 +495,7 @@ export async function openPrint(preset = {}) {
     await saveProfile({ ...prof });
     progress.hidden = false;
     const bar = progress.querySelector('.bar'), txt = progress.querySelector('span');
-    const p = plan(recs.length, cfg.copies, cfg.m.cols, cfg.fill);
+    const p = plan(recs.length, cfg.copies, perPrint(cfg.m), cfg.fill);
     const textVals = Object.fromEntries(Object.entries(texts).map(([k, v]) => [k, v.value]));
     const dateVals = Object.fromEntries(Object.entries(dates).map(([k, v]) => [k, v.value]));
     let job = null;
@@ -503,7 +516,7 @@ export async function openPrint(preset = {}) {
       return;
     }
     logger.info(`Print #${job} started: "${label.name}" ${p.labels} labels in ${p.rows} rows`, {
-      from: opt.from, to: opt.to, printer: prof.printer, method: prof.method, media: cfg.m.name, cols: cfg.m.cols, rot: cfg.o.rot,
+      from: opt.from, to: opt.to, printer: prof.printer, method: prof.method, media: cfg.m.name, cols: cfg.m.cols, rows: cfg.m.rows, rot: cfg.o.rot,
       shift: cfg.shift,
     });
     const settings = { ...prof, ...tsplOf(cfg.m) };
