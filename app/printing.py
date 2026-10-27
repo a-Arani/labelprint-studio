@@ -59,7 +59,7 @@ def tspl_job(pages: list[dict], s: dict) -> bytes:
         f"OFFSET {_n(s.get('feedOffset', 0))} mm",
         f"SPEED {_n(s.get('speed', 4))}",
         f"DENSITY {int(s.get('density', 8))}",
-        "SET TEAR ON",
+        *FINISH.get(s.get("finish") or "tear", FINISH["tear"]),
     ]
     out = bytearray(("\r\n".join(head) + "\r\n").encode("ascii"))
     invert = bool(s.get("invert"))
@@ -76,32 +76,90 @@ def tspl_job(pages: list[dict], s: dict) -> bytes:
     return bytes(out)
 
 
+# What the printer does after each label (set in every job, and from Printer control)
+FINISH = {
+    "tear": ["SET TEAR ON"],                 # stop at the tear bar (default)
+    "peel": ["SET PEEL ON"],                 # peel-off module: wait until the label is taken
+    "cut": ["SET CUTTER 1"],                 # cutter: cut after every label
+    "cutBatch": ["SET CUTTER BATCH"],        # cutter: cut once at the end of the job
+    "none": ["SET TEAR OFF"],                # stop right after printing
+}
+# Switching mode from Printer control also turns the other modes off
+FINISH_SWITCH = {
+    "tear": ["SET PEEL OFF", "SET CUTTER OFF", "SET TEAR ON"],
+    "peel": ["SET CUTTER OFF", "SET PEEL ON"],
+    "cut": ["SET PEEL OFF", "SET CUTTER 1"],
+    "cutBatch": ["SET PEEL OFF", "SET CUTTER BATCH"],
+    "none": ["SET PEEL OFF", "SET CUTTER OFF", "SET TEAR OFF"],
+}
+RAW_MAX = 4096
+
+
+def _dots(s: dict) -> int:
+    """A paper distance in mm (s["mm"]) as printer dots."""
+    try:
+        mm = float(s.get("mm", 0))
+    except (TypeError, ValueError):
+        mm = 0
+    if not 0.1 <= mm <= 500:
+        raise PrintError("print.bad_distance", "The distance must be between 0.1 and 500 mm")
+    return max(1, min(9999, round(mm * float(s.get("dpi", 203)) / 25.4)))
+
+
+def _finish_switch(s: dict) -> list[str]:
+    mode = s.get("finish") or "tear"
+    if mode not in FINISH_SWITCH:
+        raise PrintError("print.unknown_command", "Unknown command")
+    return FINISH_SWITCH[mode]
+
+
+def _raw(s: dict) -> list[str]:
+    text = str(s.get("text", "")).replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        raise PrintError("print.raw_empty", "Write a command first")
+    if any(not (32 <= ord(ch) < 127 or ch in "\n\t") for ch in text):
+        raise PrintError("print.raw_invalid", "Commands may contain only English letters, digits and symbols")
+    if len(text) > RAW_MAX:
+        raise PrintError("print.raw_too_long", "The command is too long (at most {max} characters)", max=RAW_MAX)
+    return [ln.rstrip() for ln in text.split("\n")]
+
+
+# Printer control. Each entry: (needs the roll's SIZE/GAP first, the TSPL lines)
 COMMANDS = {
+    "feed": (True, lambda s: ["FORMFEED"]),                      # feed one label (one row)
+    "feedmm": (True, lambda s: [f"FEED {_dots(s)}"]),             # feed a distance
+    "backfeed": (True, lambda s: [f"BACKFEED {_dots(s)}"]),       # reverse feed a distance
+    "home": (True, lambda s: ["HOME"]),                          # move to the start of the next label
     # Calibrate the gap or black-mark sensor for a new roll
-    "calibrate": lambda s: ["BLINEDETECT" if s.get("media") == "bline" else "GAPDETECT"],
-    # Feed one label (one row)
-    "feed": lambda s: ["FORMFEED"],
+    "calibrate": (True, lambda s: ["BLINEDETECT" if s.get("media") == "bline" else "GAPDETECT"]),
+    "autodetect": (True, lambda s: ["AUTODETECT"]),
+    "selftest": (False, lambda s: ["SELFTEST"]),                 # print the printer's self-test page
+    "beep": (False, lambda s: ["SOUND 5,200"]),
+    "finish": (False, _finish_switch),
+    "factory": (False, lambda s: ["INITIALPRINTER"]),            # restore the printer's factory settings
+    "raw": (False, _raw),                                        # any TSPL the user types
 }
 
 
 def tspl_command(cmd: str, s: dict) -> bytes:
     if cmd not in COMMANDS:
         raise PrintError("print.unknown_command", "Unknown command")
-    if s.get("media") == "continuous" and cmd == "calibrate":
+    if s.get("media") == "continuous" and cmd in ("calibrate", "autodetect"):
         raise PrintError("print.continuous_no_calibration", "Continuous media does not need calibration")
-    lines = _media_lines(s, float(s.get("stockW") or 100), float(s.get("stockH") or 50)) + COMMANDS[cmd](s)
+    with_media, build = COMMANDS[cmd]
+    lines = (_media_lines(s, float(s.get("stockW") or 100), float(s.get("stockH") or 50)) if with_media else []) + build(s)
     return ("\r\n".join(lines) + "\r\n").encode("ascii")
 
 
 def send_command(cmd: str, s: dict) -> dict:
     """Send a direct command to the printer (TSPL or network method only)."""
-    data = tspl_command(cmd, s)
     method = s.get("method", "tspl")
-    LOG.info("Printer command '%s': method=%s printer=%s -> %r", cmd, method, s.get("printer") or s.get("host"), data)
-    if method == "network":
-        return {"ok": True, "bytes": send_tcp(s.get("host", ""), int(s.get("port", 9100)), data)}
     if method == "driver":
         raise PrintError("print.direct_only", "This only works with the Direct (TSPL) or Network method")
+    data = tspl_command(cmd, s)
+    LOG.info("Printer command '%s': method=%s printer=%s -> %r", cmd, method, s.get("printer") or s.get("host"), data[:300])
+    if method == "network":
+        return {"ok": True, "bytes": send_tcp(s.get("host", ""), int(s.get("port", 9100)), data)}
     return {"ok": True, "bytes": send_raw(resolve_printer(s.get("printer", "")), data, f"Label {cmd}")}
 
 

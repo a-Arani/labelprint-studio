@@ -146,17 +146,36 @@ export function layoutTestCanvas(m, dpi, prof = {}) {
   g.lineWidth = Math.max(2, 0.35 * dpmm);
   for (let i = 0; i < m.cols; i++) {
     const x = (L.xs[i] + (prof.offX || 0)) * dpmm, y = (prof.offY || 0) * dpmm;
-    const w = m.labelW * dpmm, hh = m.labelH * dpmm, inset = 0.6 * dpmm;
-    g.strokeRect(x + inset, y + inset, w - 2 * inset, hh - 2 * inset);
-    const big = Math.min(hh * 0.45, w * 0.35);
+    const w = m.labelW * dpmm, hh = m.labelH * dpmm;
+    g.lineWidth = Math.max(1, 0.2 * dpmm);
+    g.strokeRect(x, y, w, hh);
+    // Millimetre rulers from every edge: how many millimetres are missing shows how far to shift the print
+    const tick = Math.max(1, Math.round(0.15 * dpmm));
+    const len = (mm) => (mm % 5 === 0 ? 2.4 : 1.2) * dpmm;
+    for (let mm = 1; mm < m.labelW; mm++) {
+      g.fillRect(x + mm * dpmm, y, tick, len(mm));
+      g.fillRect(x + mm * dpmm, y + hh - len(mm), tick, len(mm));
+    }
+    for (let mm = 1; mm < m.labelH; mm++) {
+      g.fillRect(x, y + mm * dpmm, len(mm), tick);
+      g.fillRect(x + w - len(mm), y + mm * dpmm, len(mm), tick);
+    }
+    const ruler = Math.max(9, 1.8 * dpmm);
+    g.font = `${ruler}px Tahoma`;
+    g.textAlign = 'center';
+    g.textBaseline = 'top';
+    for (let mm = 5; mm < m.labelW - 2; mm += 5) g.fillText(String(mm), x + mm * dpmm, y + 2.7 * dpmm);
+    g.textAlign = 'left';
+    g.textBaseline = 'middle';
+    for (let mm = 5; mm < m.labelH - 2; mm += 5) g.fillText(String(mm), x + 2.8 * dpmm, y + mm * dpmm);
+    const big = Math.min(hh * 0.4, w * 0.3);
     g.font = `bold ${big}px Tahoma`;
     g.textAlign = 'center';
-    g.textBaseline = 'middle';
     g.fillText(String(i + 1), x + w / 2, y + hh / 2 + big * 0.05);
-    const small = Math.max(10, Math.min(hh * 0.13, 3 * dpmm));
+    const small = Math.max(10, Math.min(hh * 0.12, 3 * dpmm));
     g.font = `${small}px Tahoma`;
-    g.fillText('▲ ' + t('media.testTop'), x + w / 2, y + inset + small * 1.1);
-    g.fillText(`${m.labelW}×${m.labelH}`, x + w / 2, y + hh - inset - small * 0.9);
+    g.fillText('▲ ' + t('media.testTop'), x + w / 2, y + 6 * dpmm + small / 2);
+    g.fillText(`${m.labelW}×${m.labelH}`, x + w / 2, y + hh - 4.5 * dpmm - small / 2);
   }
   return c;
 }
@@ -254,7 +273,9 @@ export async function openMediaManager(selectId, onDone) {
     h('div', { class: 'btn-row wrap' },
       h('button', { class: 'btn', onclick: () => command('calibrate', t('media.calibrateSent')) }, t('media.calibrate')),
       h('button', { class: 'btn', onclick: () => command('feed', t('media.fed')) }, t('media.feed')),
-      h('button', { class: 'btn btn-primary', onclick: testPrint }, t('media.testPrint'))));
+      h('button', { class: 'btn btn-primary', onclick: testPrint }, t('media.testPrint')),
+      // Loaded on demand: the printer control window itself uses this module
+      h('button', { class: 'btn btn-ghost', onclick: async () => (await import('./printercontrol.js')).openPrinterControl(printerSel.value, cur.id) }, t('pc.open'))));
 
   const add = (base) => {
     const m = normMedia({ ...(base ? clone(base) : MEDIA_DEFAULT), id: uid(), name: base ? `${base.name}${t('media.copySuffix')}` : t('media.newRoll') });

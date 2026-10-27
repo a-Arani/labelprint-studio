@@ -8,6 +8,7 @@ import { rasterize, toMono, monoToCanvas, monoToBase64, bbox } from './render.js
 import { loadPrinters, profileFor, saveProfile, pickDefaultPrinter, baseName } from './printers.js';
 import { mediaList, matchMedia, normMedia, layout, problems, tsplOf, openMediaManager } from './media.js';
 import { rotOptions, rotValue } from './panels.js';
+import { openPrinterControl } from './printercontrol.js';
 import { t } from './i18n.js';
 
 const eq = (a, b) => Math.abs(a - b) <= 0.6;
@@ -62,7 +63,7 @@ function placeCell(src, m, dpmm, o, fitMode) {
   return c;
 }
 
-function composeRow(m, cells, dpmm, prof) {
+function composeRow(m, cells, dpmm, prof, shift = NO_SHIFT) {
   const L = layout(m);
   const c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(m.linerW * dpmm));
@@ -73,7 +74,7 @@ function composeRow(m, cells, dpmm, prof) {
   const LW = Math.round(m.labelW * dpmm), LH = Math.round(m.labelH * dpmm);
   cells.forEach((cell, i) => {
     if (!cell) return;
-    const x = Math.round((L.xs[i] + (prof.offX || 0)) * dpmm), y = Math.round((prof.offY || 0) * dpmm);
+    const x = Math.round((L.xs[i] + (prof.offX || 0) + shift.x) * dpmm), y = Math.round(((prof.offY || 0) + shift.y) * dpmm);
     // Each label stays inside its own cell
     g.save();
     g.beginPath();
@@ -83,6 +84,21 @@ function composeRow(m, cells, dpmm, prof) {
     g.restore();
   });
   return c;
+}
+
+const NO_SHIFT = { x: 0, y: 0 };
+
+/** Black dots in a 1-bit image; with m and dpmm, only those that land on a label (not on the liner around it) */
+function countInk(mono, m, dpmm) {
+  const cols = m ? layout(m).xs.map((x) => [Math.round(x * dpmm), Math.round((x + m.labelW) * dpmm)]) : null;
+  let n = 0;
+  for (let y = 0; y < mono.h; y++) {
+    for (let x = 0; x < mono.w; x++) {
+      if (!(mono.bits[y * mono.wb + (x >> 3)] & (0x80 >> (x & 7)))) continue;
+      if (!cols || cols.some(([a, b]) => x >= a && x < b)) n++;
+    }
+  }
+  return n;
 }
 
 /** Number of labels and rows, without rendering */
@@ -112,21 +128,21 @@ async function* renderRows(label, recs, cfg, onProgress = () => {}) {
     }
     return cache.get(key);
   };
-  const row = (cells) => toMono(composeRow(m, cells, dpmm, prof), prof.threshold);
+  const row = (cells) => toMono(composeRow(m, cells, dpmm, prof, cfg.shift || NO_SHIFT), prof.threshold);
   if (identical) {
     const p = plan(recs.length, copies, cols, fill);
     const { cell, errors } = await cellOf(0);
     const full = Math.floor(p.labels / cols), rem = p.labels % cols;
     onProgress(1, 1);
-    if (full) yield { mono: row(Array(cols).fill(cell)), copies: full, labels: full * cols, idx: recs.length - 1, errors };
-    if (rem) yield { mono: row(Array(rem).fill(cell)), copies: 1, labels: rem, idx: recs.length - 1, errors };
+    if (full) yield { mono: row(Array(cols).fill(cell)), cells: Array(cols).fill(cell), copies: full, labels: full * cols, idx: recs.length - 1, errors };
+    if (rem) yield { mono: row(Array(rem).fill(cell)), cells: Array(rem).fill(cell), copies: 1, labels: rem, idx: recs.length - 1, errors };
     return;
   }
   if (fill === 'same') {
     for (let i = 0; i < recs.length; i++) {
       const { cell, errors } = await cellOf(i);
       onProgress(i + 1, recs.length);
-      yield { mono: row(Array(cols).fill(cell)), copies, labels: copies * cols, idx: i, errors };
+      yield { mono: row(Array(cols).fill(cell)), cells: Array(cols).fill(cell), copies, labels: copies * cols, idx: i, errors };
     }
     return;
   }
@@ -141,7 +157,7 @@ async function* renderRows(label, recs, cfg, onProgress = () => {}) {
       errors.push(...c.errors);
     }
     onProgress(Math.min(items.length, k + cols), items.length);
-    yield { mono: row(cells), copies: 1, labels: slice.length, idx: slice[slice.length - 1], errors };
+    yield { mono: row(cells), cells, copies: 1, labels: slice.length, idx: slice[slice.length - 1], errors };
   }
 }
 
@@ -297,6 +313,44 @@ export async function openPrint(preset = {}) {
     return prof;
   };
 
+  // Position shift for this print only (not saved): print one test label, look, adjust, then print
+  const shift = { x: 0, y: 0 };
+  const stepSel = h('select', { class: 'inp pa-step', title: t('print.step') },
+    ...[0.1, 0.5, 1, 2].map((v) => h('option', { value: v, selected: v === 0.5 }, `${v} mm`)));
+  const shiftIn = (k) => {
+    const box = h('input', { class: 'inp num', type: 'number', step: 0.1, value: 0 });
+    box.addEventListener('change', () => { shift[k] = r2(parseFloat(box.value) || 0); });
+    return box;
+  };
+  const shiftX = shiftIn('x'), shiftY = shiftIn('y');
+  const nudge = (dx, dy) => {
+    const st = parseFloat(stepSel.value);
+    shift.x = r2(shift.x + dx * st);
+    shift.y = r2(shift.y + dy * st);
+    shiftX.value = shift.x;
+    shiftY.value = shift.y;
+    later();
+  };
+  const arrow = (label, title, dx, dy) => h('button', {
+    class: 'btn pa-arrow', type: 'button', title, 'aria-label': title, onclick: () => nudge(dx, dy),
+  }, label);
+  const adjustWarn = h('div', { class: 'err-text', hidden: true }, t('print.shiftOutside'));
+  const testBtn = h('button', { class: 'btn', type: 'button', onclick: () => testPrint() }, t('print.testOne'));
+  const adjustBox = h('div', { class: 'print-adjust' },
+    h('div', { class: 'pa-head' }, h('b', {}, t('print.adjustTitle')), testBtn),
+    h('div', { class: 'pa-body' },
+      h('div', { class: 'pa-pad', dir: 'ltr' },
+        h('span'), arrow('\u2191', t('print.moveUp'), 0, -1), h('span'),
+        arrow('\u2190', t('print.moveLeft'), -1, 0),
+        h('button', { class: 'btn pa-zero', type: 'button', title: t('print.shiftReset'), onclick: () => { shift.x = 0; shift.y = 0; shiftX.value = 0; shiftY.value = 0; later(); } }, '0'),
+        arrow('\u2192', t('print.moveRight'), 1, 0),
+        h('span'), arrow('\u2193', t('print.moveDown'), 0, 1), h('span')),
+      h('div', { class: 'pa-fields' },
+        F(t('print.shiftX'), h('span', { class: 'num-wrap' }, shiftX, h('em', {}, 'mm'))),
+        F(t('print.shiftY'), h('span', { class: 'num-wrap' }, shiftY, h('em', {}, 'mm'))),
+        F(t('print.step'), stepSel))),
+    adjustWarn);
+
   const countInfo = h('div', { class: 'print-count' });
   const setupInfo = h('div', { class: 'print-setup' });
   const previewBox = h('div', { class: 'print-preview' });
@@ -321,7 +375,7 @@ export async function openPrint(preset = {}) {
     const m = mediaSel.value === 'adhoc' ? adhocMedia(page, choice, prof) : normMedia(mediaList().find((x) => x.id === mediaSel.value));
     const o = orient(page, m, choice);
     const n = Math.max(1, parseInt(copies.value, 10) || 1);
-    return { m, o, dpi: prof.dpi, fill: m.cols > 1 ? fillSel.value : 'seq', copies: n, fitMode: fitSel.value, prof };
+    return { m, o, dpi: prof.dpi, fill: m.cols > 1 ? fillSel.value : 'seq', copies: n, fitMode: fitSel.value, prof, shift: { ...shift } };
   };
 
   const describe = (cfg, recCount) => {
@@ -359,8 +413,15 @@ export async function openPrint(preset = {}) {
     errorsBox.replaceChildren();
     let shown = 0;
     const dpmm = cfg.dpi / 25.4;
+    adjustWarn.hidden = true;
     for await (const row of renderRows(label, recs, cfg)) {
       if (token !== previewToken) return;
+      if (!shown) {
+        // Ink that the printer offsets or the shift push off the label (onto the liner, or off the edge)
+        const design = countInk(toMono(composeRow(cfg.m, row.cells, dpmm, { offX: 0, offY: 0 }), prof.threshold));
+        const onLabel = countInk(row.mono, cfg.m, dpmm);
+        adjustWarn.hidden = design - onLabel <= Math.max(8, design * 0.002);
+      }
       const pv = previewCanvas(cfg.m, row.mono, dpmm, prof);
       pv.className = 'pv';
       previewBox.append(h('div', { class: 'pv-wrap' }, pv, h('span', {}, dims(pv.width, pv.height) + (row.copies > 1 ? ` × ${row.copies}` : ''))));
@@ -370,12 +431,42 @@ export async function openPrint(preset = {}) {
     if (p.rows > shown && token === previewToken) previewBox.append(h('div', { class: 'pv-more' }, t('print.moreRows', { n: p.rows - shown })));
   };
 
+  const ready = () => {
+    if (prof.method !== 'network' && !prof.printer) { toast(t('print.noPrinter'), 'error'); return false; }
+    if (prof.method === 'network' && !prof.host) { toast(t('print.noIp'), 'error'); return false; }
+    return true;
+  };
+
+  // One row with the first label(s); not recorded in the history and no numbers are used up
+  const testPrint = async () => {
+    const cfg = setup();
+    if (!ready()) return;
+    const recs = records();
+    if (!recs.length) { toast(t('print.badRange'), 'error'); return; }
+    testBtn.disabled = true;
+    try {
+      const first = recs.slice(0, cfg.m.cols);
+      const it = renderRows(label, first, { ...cfg, copies: 1, fill: 'seq' });
+      const { value: row } = await it.next();
+      if (row.errors.length) throw new Error(row.errors[0]);
+      await api('/api/print', {
+        jobName: `${label.name || 'Label'} test`, settings: { ...prof, ...tsplOf(cfg.m) },
+        pages: [{ w: row.mono.w, h: row.mono.h, bits: monoToBase64(row.mono), copies: 1 }],
+      });
+      logger.info(`Test print: "${label.name}"`, { shift: cfg.shift, printer: prof.printer, method: prof.method });
+      toast(t('print.testSent'), 'ok', 4000);
+    } catch (e) {
+      toast(e.message, 'error', 7000);
+    } finally {
+      testBtn.disabled = false;
+    }
+  };
+
   let printing = false;
   const doPrint = async (close) => {
     if (printing) return;
     const cfg = setup();
-    if (prof.method !== 'network' && !prof.printer) { toast(t('print.noPrinter'), 'error'); return; }
-    if (prof.method === 'network' && !prof.host) { toast(t('print.noIp'), 'error'); return; }
+    if (!ready()) return;
     const recs = records();
     if (!recs.length) { toast(t('print.badRange'), 'error'); return; }
     const opt = { from: from ? parseFloat(from.value) : undefined, to: to ? parseFloat(to.value) : undefined };
@@ -403,7 +494,7 @@ export async function openPrint(preset = {}) {
         method: prof.method, counter: counter ? counter.name : null, c_from: opt.from ?? null, c_to: opt.to ?? null,
         c_step: counter ? cstep : null, rows_from: rowFrom ? parseInt(rowFrom.value, 10) : null,
         rows_to: rowTo ? parseInt(rowTo.value, 10) : null, copies: cfg.copies, planned: p.labels,
-        values_json: JSON.stringify({ texts: textVals, dates: dateVals, media: cfg.m, rotate: cfg.o.rot, fill: cfg.fill }),
+        values_json: JSON.stringify({ texts: textVals, dates: dateVals, media: cfg.m, rotate: cfg.o.rot, fill: cfg.fill, shift: cfg.shift }),
       })).job;
     } catch (e) {
       toast(t('print.jobFailed', { error: e.message }), 'error');
@@ -413,6 +504,7 @@ export async function openPrint(preset = {}) {
     }
     logger.info(`Print #${job} started: "${label.name}" ${p.labels} labels in ${p.rows} rows`, {
       from: opt.from, to: opt.to, printer: prof.printer, method: prof.method, media: cfg.m.name, cols: cfg.m.cols, rot: cfg.o.rot,
+      shift: cfg.shift,
     });
     const settings = { ...prof, ...tsplOf(cfg.m) };
     let batch = [], part = 1, sentLabels = 0;
@@ -482,6 +574,7 @@ export async function openPrint(preset = {}) {
       ...rangeRows,
       ...askFields,
       h('div', { class: 'prow' }, F(t('print.copies'), copies), countInfo),
+      adjustBox,
       h('details', { class: 'print-adv' },
         h('summary', {}, t('print.printerSettings')),
         h('div', { class: 'prow' }, F(t('print.dpi'), st.dpi), F(t('print.maxWidth'), st.maxWidth)),
@@ -489,7 +582,9 @@ export async function openPrint(preset = {}) {
         h('div', { class: 'prow' }, F(t('print.offX'), st.offX), F(t('print.offY'), st.offY)),
         F(t('print.threshold'), st.threshold)),
       progress,
-      h('button', { class: 'linkish', onclick: () => browserPrint(label, records(), setup()) }, t('print.browserPrint'))));
+      h('div', { class: 'btn-row wrap' },
+        h('button', { class: 'linkish', onclick: () => browserPrint(label, records(), setup()) }, t('print.browserPrint')),
+        h('button', { class: 'linkish', onclick: () => openPrinterControl(prof.printer) }, t('pc.open')))));
 
   fill();
   const before = { mediaId: page.mediaId, printRotate: page.printRotate, fitMode: page.fitMode, fill: page.fill };

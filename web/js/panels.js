@@ -8,6 +8,8 @@ import { ICONS } from './icons.js';
 import { bbox } from './render.js';
 import { mediaList, openMediaManager } from './media.js';
 import { t, isRTL, lang } from './i18n.js';
+import { openImageEditor, turnImage, mirrorImage, resetImage } from './imageeditor.js';
+import { fxOf, isEdited, MODES } from './imagefx.js';
 
 let editor;
 let savedRange = null;
@@ -528,14 +530,37 @@ function typeProps(e) {
       return section(t('type.line'),
         row(field(t('props.color'), colorPick('stroke', e.stroke, set('stroke'), false)), field(t('props.thickness'), num('strokeW', e.strokeW, set('strokeW', (v) => Math.max(0.05, v)), { min: 0.05, step: 0.1, suffix: 'mm' }))),
         row(field(t('props.dash'), sel('dash', e.dash || '', dashes(), set('dash', (v) => v || null))), field(t('props.cap'), sel('cap', e.cap || 'butt', ['butt', 'round', 'square'].map((k) => [k, t('cap.' + k)]), set('cap')))));
-    case 'image':
+    case 'image': {
+      const f = fxOf(e);
+      // Older labels keep "dither" as its own field; carry it over when the first new setting is made
+      const setFx = (k) => (v) => mutate(() => { e.fx = { ...(e.dither && !e.fx ? { mode: 'fs' } : {}), ...(e.fx || {}), [k]: v }; delete e.dither; });
+      const level = h('input', { type: 'range', min: 1, max: 254, step: 1, value: f.level, 'data-key': 'level', class: 'ie-range', title: t('img.level') });
+      level.addEventListener('change', () => setFx('level')(Number(level.value)));
+      const corner = e.mask === 'circle' ? 'circle' : e.radius ? 'round' : 'square';
+      const setCorner = (v) => mutate(() => {
+        delete e.mask;
+        if (v === 'circle') { e.mask = 'circle'; delete e.radius; } else if (v === 'round') e.radius = e.radius || 2; else delete e.radius;
+      });
       return section(t('type.image'),
-        row(field(t('props.imageFit'), sel('fit', e.fit || 'fill', ['fill', 'contain', 'cover'].map((k) => [k, t('fit.' + k)]), set('fit'))), h('span')),
-        row(check(t('props.invert'), e.invert, set('invert'), 'invert'), check(t('props.dither'), e.dither, set('dither'), 'dither')),
-        row(check(t('props.gray'), e.gray, set('gray'), 'gray'), (e.crop || []).some((c) => c) ? h('button', { class: 'btn btn-ghost', onclick: () => mutate(() => { e.crop = [0, 0, 0, 0]; }) }, t('props.removeCrop')) : h('span')),
+        h('div', { class: 'prow prow-btn' },
+          h('button', { class: 'btn btn-primary', onclick: () => openImageEditor(e) }, t('img.edit')),
+          h('button', { class: 'btn', onclick: () => openImageEditor(e, { cropFirst: true }) }, icon('crop'), t('img.cropBtn'))),
+        h('div', { class: 'btn-row' },
+          iconBtn('rotL', t('img.rotateLeft'), () => mutate(() => turnImage(e, -1))),
+          iconBtn('rotR', t('img.rotateRight'), () => mutate(() => turnImage(e, 1))),
+          iconBtn('flipH', t('img.flipH'), () => mutate(() => mirrorImage(e, 'h'))),
+          iconBtn('flipV', t('img.flipV'), () => mutate(() => mirrorImage(e, 'v')))),
+        row(field(t('img.mode'), sel('mode', f.mode, MODES.map((m) => [m, t('img.mode.' + m)]), setFx('mode'))),
+          f.mode !== 'auto' ? field(t('img.level'), level) : h('span')),
+        row(check(t('props.invert'), e.invert, set('invert'), 'invert'), check(t('img.removeBg'), f.removeBg, setFx('removeBg'), 'removeBg')),
+        row(field(t('props.imageFit'), sel('fit', e.fit || 'fill', ['fill', 'contain', 'cover'].map((k) => [k, t('fit.' + k)]), set('fit'))),
+          field(t('img.corners'), sel('corner', corner, ['square', 'round', 'circle'].map((k) => [k, t('img.corner.' + k)]), setCorner))),
+        corner === 'round' ? row(field(t('props.cornerRadius'), num('radius', e.radius, set('radius', (v) => Math.max(0.5, v)), { min: 0.5, step: 0.5, suffix: 'mm' })), h('span')) : null,
         row(h('button', { class: 'btn', onclick: () => replaceImage(e) }, t('props.replaceImage')),
           h('button', { class: 'btn btn-ghost', onclick: () => fixAspect(e) }, t('props.originalRatio'))),
+        isEdited(e) || (e.crop || []).some((c) => c) ? h('button', { class: 'btn btn-ghost', onclick: () => mutate(() => resetImage(e)) }, t('img.resetEdits')) : null,
         strokeRow(e));
+    }
     case 'barcode':
       return section(t('type.barcode'),
         field(t('props.value'), textInput('value', e.value, set('value'))),
@@ -567,7 +592,9 @@ function fixAspect(e) {
   const img = new Image();
   img.onload = () => {
     const c = e.crop || [0, 0, 0, 0];
-    const ratio = (img.naturalHeight * (1 - c[1] - c[3])) / (img.naturalWidth * (1 - c[0] - c[2]));
+    const turned = ((e.fx && e.fx.rot90) || 0) % 180 !== 0;
+    const nw = turned ? img.naturalHeight : img.naturalWidth, nh = turned ? img.naturalWidth : img.naturalHeight;
+    const ratio = (nh * (1 - c[1] - c[3])) / (nw * (1 - c[0] - c[2]));
     mutate(() => { e.h = r2(e.w * ratio); });
   };
   img.src = e.src;
@@ -842,6 +869,7 @@ export function initPanels(ed) {
   on('live', liveGeometry);
   on('editing', () => { savedRange = null; refreshFormat(); });
   on('fonts', () => refreshFormat());
+  on('image-edit', (e) => openImageEditor(e));
   on('focus-prop', () => {
     const i = document.querySelector('#props [data-key="value"]');
     if (i) { i.focus(); if (i.select) i.select(); }

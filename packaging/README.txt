@@ -27,6 +27,17 @@ PRINTING
   - "Direct (TSPL)" is best for a TSC (or other TSPL) printer connected by USB.
   - If nothing prints, choose "Windows driver"; for a printer on the network choose "Network (IP)".
   - "Printer settings" in the print dialog: darkness, speed, offsets and resolution (203/300 dpi).
+  - Print one test label first ("Print 1 test label"). If the print is a little off, move it with the
+    arrow buttons under "Test and adjust position" and print the whole batch. The shift is for that print only.
+  - "..." > "Printer control..." feeds one label or any distance, reverse feeds, calibrates the sensor,
+    prints the self-test page or an alignment test with millimetre rulers, and switches tear-off,
+    peel-off or cutter mode.
+
+PICTURES AND LOGOS
+  Double-click a picture to open the image editor: crop, trim borders, rotate, mirror, brightness,
+  contrast, midtones, sharpness, opacity, rounded or circle corners, and remove background.
+  For thermal printing choose "Black and white": Threshold for logos and text, Dither for photos.
+  "Show as printed" shows the exact dots the printer will make.
 
 ROLLS AND SEVERAL LABELS PER ROW
   In the right panel pick a roll, or define your own with "Rolls...": roll (liner) width, labels per row,

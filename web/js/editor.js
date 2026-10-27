@@ -4,6 +4,7 @@ import { PXMM, uid, clamp, r2, h, clone, previewValues } from './util.js';
 import { renderElement, renderLabel, applyFits, bbox } from './render.js';
 import { mediaById } from './media.js';
 import { t } from './i18n.js';
+import { onReady } from './imagefx.js';
 
 const HANDLES = { nw: [-1, -1], n: [0, -1], ne: [1, -1], e: [1, 0], se: [1, 1], s: [0, 1], sw: [-1, 1], w: [-1, 0] };
 
@@ -55,6 +56,8 @@ export class Editor {
     new ResizeObserver(() => this.layout()).observe(ws);
     on('change', (what) => { if (what !== 'text') this.render(); });
     on('selection', () => this.drawOverlay());
+    // An edited picture is processed in the background; show it when it is ready
+    onReady((id) => { if (S.doc && byId(id)) this.renderEls([id]); });
   }
 
   dpmm() { return (S.settings.editDpi || 203) / 25.4; }
@@ -319,6 +322,7 @@ export class Editor {
     const e = byId(node.dataset.id);
     if (!e) return;
     if (e.type === 'text') this.startEdit(e.id, ev);
+    else if (e.type === 'image' && !e.locked) emit('image-edit', e);
     else emit('focus-prop', e);
   }
 

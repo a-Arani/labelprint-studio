@@ -60,6 +60,46 @@ def test_roll_width_size_and_commands():
         pass
 
 
+def test_printer_control_commands():
+    roll = {"stockW": 100, "stockH": 50, "gap": 2}
+    # Distances are sent as printer dots: 10 mm = 80 dots at 203 dpi, 118 dots at 300 dpi
+    assert printing.tspl_command("feedmm", {**roll, "mm": 10}).endswith(b"FEED 80\r\n")
+    assert printing.tspl_command("backfeed", {**roll, "mm": 10, "dpi": 300}).endswith(b"BACKFEED 118\r\n")
+    assert printing.tspl_command("backfeed", roll | {"mm": 5}).startswith(b"SIZE 100 mm,50 mm\r\nGAP 2 mm,0 mm\r\n")
+    assert printing.tspl_command("home", roll).endswith(b"HOME\r\n")
+    assert printing.tspl_command("autodetect", roll).endswith(b"AUTODETECT\r\n")
+    # Commands that do not depend on the roll are sent alone
+    assert printing.tspl_command("selftest", roll) == b"SELFTEST\r\n"
+    assert printing.tspl_command("beep", roll) == b"SOUND 5,200\r\n"
+    assert printing.tspl_command("factory", roll) == b"INITIALPRINTER\r\n"
+    assert printing.tspl_command("finish", {"finish": "peel"}) == b"SET CUTTER OFF\r\nSET PEEL ON\r\n"
+    assert printing.tspl_command("finish", {"finish": "tear"}).endswith(b"SET TEAR ON\r\n")
+    for bad in ({"mm": 0}, {"mm": 900}, {"mm": "x"}):
+        try:
+            printing.tspl_command("feedmm", {**roll, **bad})
+            raise AssertionError(f"distance {bad} must be refused")
+        except printing.PrintError as e:
+            assert e.code == "print.bad_distance"
+
+
+def test_raw_command_is_checked():
+    assert printing.tspl_command("raw", {"text": " SIZE 50 mm,30 mm\r\nCLS\nPRINT 1 "}) == b"SIZE 50 mm,30 mm\r\nCLS\r\nPRINT 1\r\n"
+    for text, code in (("", "print.raw_empty"), ("PRINT ۱", "print.raw_invalid"), ("A" * 5000, "print.raw_too_long")):
+        try:
+            printing.tspl_command("raw", {"text": text})
+            raise AssertionError(code)
+        except printing.PrintError as e:
+            assert e.code == code
+
+
+def test_finish_mode_in_print_jobs():
+    pg = sample_page()
+    assert b"SET TEAR ON\r\n" in printing.tspl_job([pg], {})
+    assert b"SET PEEL ON\r\n" in printing.tspl_job([pg], {"finish": "peel"})
+    assert b"SET CUTTER BATCH\r\n" in printing.tspl_job([pg], {"finish": "cutBatch"})
+    assert b"SET TEAR" not in printing.tspl_job([pg], {"finish": "cut"})
+
+
 def test_base_name():
     assert printing.base_name("TSC TE200 (redirected 2)") == "TSC TE200"
     assert printing.base_name("TSC TE200") == "TSC TE200"

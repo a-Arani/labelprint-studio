@@ -38,6 +38,9 @@ No account, no subscription, no internet connection: download, unzip and start p
 | 🖨️ **Made for thermal printers** | Prints directly in the TSC/TSPL printer language, pixel-exact at 203 or 300 dpi. |
 | 🔢 **Serial numbers in one click** | Print labels *1001 to 5000*; every label gets its own number and barcode. |
 | 📦 **One template, every product** | Design once, then fill in name, size and price for each product, or import them all from Excel. |
+| 🖼️ **A photo editor built in** | Crop, rotate, adjust and remove backgrounds, with black-and-white modes made for thermal printers. |
+| 🎯 **Perfect position** | Print one test label, nudge the print a fraction of a millimetre, then print the batch. |
+| 🎛️ **Full printer control** | Feed, reverse feed, calibrate, self-test and cutter/peel modes without touching the printer. |
 | 🧾 **Never print a number twice** | The print history remembers where you stopped and warns before reprinting. |
 | 🌍 **Speaks your language** | 10 interface languages, with full right-to-left support for Arabic and Persian. |
 
@@ -71,6 +74,19 @@ Insert variables anywhere: counters with prefix and leading zeros (`PKG-001001`)
 <tr>
 <td>
 
+### A photo editor built in
+
+Double-click any picture to **crop** it (free or 1:1, 4:3, 16:9…), **trim** empty borders, **rotate**, **mirror**, and fine-tune **brightness, contrast, midtones, sharpness** and **opacity**. Give it **rounded corners** or a **circle** shape, or **remove the background** with one click or an eyedropper.
+
+Thermal printers print only black dots, so every picture has its own **black-and-white mode**: a clean threshold for logos and text, or **dithering** that keeps photos looking like photos. *Show as printed* previews it at the printer's real dots. Nothing is ever lost: edits can be changed or reset at any time.
+
+</td>
+<td><img src="docs/images/image-editor.png" alt="Image editor: crop handles, brightness and contrast, black and white dithering for thermal printing"></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/rolls.png" alt="Label roll setup with labels per row, label size and gaps"></td>
+<td>
+
 ### Any label roll, several labels per row
 
 Tell the app how your roll looks (roll width, labels across, label size, gaps and margins) and see it drawn to scale. Print one, two or more labels per row.
@@ -78,21 +94,43 @@ Tell the app how your roll looks (roll width, labels across, label size, gaps an
 Designed in portrait but the roll is landscape? LabelPrint Studio **rotates the design automatically** to fit.
 
 </td>
-<td><img src="docs/screenshots/rolls.png" alt="Label roll setup with labels per row, label size and gaps"></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/print-two-across.png" alt="Printing price tags with barcodes on a two-across roll on a TSC printer"></td>
 <td>
 
 ### Print straight to the printer
 
-See exactly what will be printed, choose the number range and copies, and print. Darkness, speed, offsets and sensor calibration are one click away.
+See exactly what will be printed, choose the number range and copies, and print. Darkness, speed and the printer's resolution are all in the print window.
 
 Works with **TSC / TSPL** printers over USB or the network, and with **any Windows printer** through its driver.
 
 </td>
+<td><img src="docs/screenshots/print-two-across.png" alt="Printing price tags with barcodes on a two-across roll on a TSC printer"></td>
 </tr>
 <tr>
+<td><img src="docs/images/print-adjust.png" alt="Print one test label, then nudge the print position up, down, left or right before printing the batch"></td>
+<td>
+
+### Test first, then print them all
+
+Every printer and every roll is a little different. Print **one test label** (it is not counted in the history and uses no numbers), then **nudge the print** up, down, left or right in steps from 0.1 mm, and print the whole batch exactly in place.
+
+The preview shows the shift live and warns you if any part would fall off the label.
+
+</td>
+</tr>
+<tr>
+<td>
+
+### Full printer control
+
+Everything you would do on the printer itself, from your desk: **feed** one label or any distance, **reverse feed**, go to the start of the label, **calibrate** the gap or black-mark sensor, print the **self-test page** or an **alignment test with millimetre rulers**, **beep** to find the printer, and switch between **tear-off, peel-off and cutter** modes. Power users can send any **TSPL command**.
+
+</td>
+<td><img src="docs/images/printer-control.png" alt="Printer control: feed, reverse feed, calibrate sensor, self-test, alignment test, tear-off, peel-off and cutter modes"></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/products.png" alt="Product labels created from one label template"></td>
 <td>
 
 ### One template, a label for every product
@@ -100,10 +138,8 @@ Works with **TSC / TSPL** printers over USB or the network, and with **any Windo
 Make a master label with fields such as *Name*, *Size* and *Price*. Create a product label by filling in the fields, or create hundreds at once from an Excel sheet. Edit everything in a spreadsheet-like table.
 
 </td>
-<td><img src="docs/screenshots/products.png" alt="Product labels created from one label template"></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/history.png" alt="Print history with totals per label and per folder"></td>
 <td>
 
 ### Know what was printed
@@ -113,8 +149,10 @@ Every print job is recorded: which label, how many, which numbers and on which p
 Your work is safe: automatic saving, previous versions of each label, a recycle bin and daily backups.
 
 </td>
+<td><img src="docs/screenshots/history.png" alt="Print history with totals per label and per folder"></td>
 </tr>
 <tr>
+<td><img src="docs/screenshots/persian-rtl.png" alt="Label designer in a right-to-left language with Arabic, Persian, English and Chinese text on a label"></td>
 <td>
 
 ### 10 languages, right-to-left ready
@@ -122,7 +160,6 @@ Your work is safe: automatic saving, previous versions of each label, a recycle 
 English, Arabic, Persian, Spanish, Chinese (Simplified), French, German, Russian, Turkish and Portuguese. Arabic and Persian get a full right-to-left interface, and labels can mix any scripts.
 
 </td>
-<td><img src="docs/screenshots/persian-rtl.png" alt="Label designer in a right-to-left language with Arabic, Persian, English and Chinese text on a label"></td>
 </tr>
 </table>
 
@@ -148,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.0.0-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.0-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -200,6 +237,24 @@ Yes. Describe your roll under **Rolls…** (labels per row, label width, gaps). 
 </details>
 
 <details>
+<summary><b>My print is slightly off the label. How do I fix it?</b></summary>
+
+In the print window, click **Print 1 test label**, look at it, then use the arrow buttons under *Test and adjust position* to move the print (for example 0.5 mm to the right) and print again. When it is right, press **Print** for the whole batch. For a printer that is always off by the same amount, set a fixed offset under *Printer settings*.
+</details>
+
+<details>
+<summary><b>How do I make photos and logos print well on a thermal printer?</b></summary>
+
+Double-click the picture to open the image editor. For logos and text choose **Black and white → Threshold** and adjust the *Black level*; for photos choose **Dither: smooth**. Turn on *Show as printed* to see the exact dots the printer will make. *Remove background* makes white areas transparent.
+</details>
+
+<details>
+<summary><b>Can I feed or reverse-feed the paper from the app?</b></summary>
+
+Yes. Open **⋯ → Printer control…** to feed one label or any distance, reverse feed, calibrate the sensor, print the self-test page or an alignment test, and switch tear-off, peel-off or cutter mode. This works with TSC and other TSPL printers (Direct or Network method).
+</details>
+
+<details>
 <summary><b>Can I open my existing labels from Word or PowerPoint?</b></summary>
 
 Yes. Use **Import** to open `.docx` and `.pptx` files, or a whole folder of them, as editable labels.
@@ -232,14 +287,14 @@ labelprint-studio/
 ├── run.py                  Starts the server and opens the app window
 ├── app/                    Python server
 │   ├── server.py           Local HTTP server and API
-│   ├── printing.py         TSPL, Windows driver (GDI) and network printing
+│   ├── printing.py         TSPL, Windows driver (GDI), network printing and printer commands
 │   ├── office_import.py    Word / PowerPoint import
 │   ├── library.py          Labels and folders on disk
 │   ├── history.py          Print history (SQLite)
 │   ├── backup.py           Versions, daily backups, diagnostics
 │   └── meta.py             App name, version and author
 ├── web/                    User interface (HTML, CSS, JavaScript modules)
-│   ├── js/                 Editor, panels, printing, rolls, history, ...
+│   ├── js/                 Editor, panels, image editor, printing, printer control, rolls, history, ...
 │   ├── i18n/               Translations (10 languages)
 │   └── vendor/             JsBarcode and QR code generator
 ├── tests/                  Automated tests (pytest, Playwright)

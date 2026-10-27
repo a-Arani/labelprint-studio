@@ -3,6 +3,19 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.0] - 2026-10-27
+
+### Added
+- **Image editor** (double-click a picture, or *Edit image…*): crop with handles and aspect ratios, trim plain borders, rotate and mirror, brightness, contrast, midtones, sharpness, soften, auto contrast, opacity, rounded or circular corners, and a hold-to-compare button. All edits are non-destructive.
+- **Black and white for thermal printing** per picture: threshold for logos and text, smooth or crisp dithering for photos, or an ordered pattern, with an adjustable black level and a "show as printed" preview at the printer's real dots.
+- **Remove background**: make white, or any colour picked with the eyedropper, transparent.
+- **Test print and position nudge** in the print dialog: print one test label (not counted in the history), move the print up, down, left or right in 0.1–2 mm steps for this print, and see a warning when part of the print would fall outside the label.
+- **Printer control** window: feed one label, feed or reverse feed a distance, go to the start of the label, calibrate or auto-detect the paper, print the self-test page or an alignment test with millimetre rulers, beep, choose tear-off / peel-off / cutter mode, send any TSPL command, and restore factory settings.
+
+### Changed
+- Pictures in black-and-white mode are processed at exactly the printer's dots, so the printout matches the screen dot for dot.
+- The fixed offsets in *Printer settings* are now labelled as fixed, to tell them apart from the per-print nudge.
+
 ## [2.0.0] - 2026-10-26
 
 First public release as **LabelPrint Studio**.
@@ -43,4 +56,5 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.0
 [2.0.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.0.0

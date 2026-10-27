@@ -4,7 +4,7 @@ import { api } from './util.js';
 
 export const PRINTER_DEFAULTS = {
   method: 'tspl', dpi: 203, speed: 4, density: 8, direction: 1, offX: 0, offY: 0, threshold: 140,
-  invert: false, feedOffset: 0, host: '', port: 9100, maxWidth: 108,
+  invert: false, feedOffset: 0, host: '', port: 9100, maxWidth: 108, finish: 'tear',
 };
 
 let printers = null;

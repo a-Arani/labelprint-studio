@@ -1,6 +1,7 @@
 // Build the label DOM (for the editor and for printing) and render it to an image at the printer's dpi
 import { PXMM, PTMM, SVGNS, cssFont, substitute, substituteHtml, bytesToBase64, emptyByVars, previewValues } from './util.js';
 import { t } from './i18n.js';
+import { isEdited, isMono, cached, request, processFor } from './imagefx.js';
 
 const px = (mm) => `${(mm * PXMM).toFixed(3)}px`;
 
@@ -223,29 +224,43 @@ function renderImage(e, wrap, ctx) {
   const crop = e.crop || [0, 0, 0, 0];
   const fw = Math.max(0.01, 1 - crop[0] - crop[2]);
   const fh = Math.max(0.01, 1 - crop[1] - crop[3]);
+  const edited = isEdited(e);
+  // The processed copy already has the turns, mirroring and colour changes; until it is ready, CSS approximates them
+  let src = ctx.imageSrc && ctx.imageSrc(e);
+  if (!src && edited && ctx.mode === 'edit') {
+    src = cached(e, ctx.dpmm);
+    if (!src) request(e, ctx.dpmm);
+  }
+  const baked = !!src && edited;
   const img = document.createElement('img');
-  img.src = (ctx.imageSrc && ctx.imageSrc(e)) || e.src;
+  img.src = src || e.src;
   img.draggable = false;
-  const tf = [];
-  if (e.flipH) tf.push('scaleX(-1)');
-  if (e.flipV) tf.push('scaleY(-1)');
   let css = 'position:absolute;display:block;max-width:none;';
   if (e.fit === 'contain' || e.fit === 'cover') {
     css += `left:0;top:0;width:${px(e.w)};height:${px(e.h)};object-fit:${e.fit};`;
   } else {
     css += `left:${px((-crop[0] * e.w) / fw)};top:${px((-crop[1] * e.h) / fh)};width:${px(e.w / fw)};height:${px(e.h / fh)};`;
   }
-  const filters = [];
-  if (e.invert) filters.push('invert(1)');
-  if (e.gray) filters.push('grayscale(1)');
-  if (filters.length && !(ctx.imageSrc && ctx.imageSrc(e))) css += `filter:${filters.join(' ')};`;
-  if (tf.length) css += `transform:${tf.join(' ')};`;
+  // Black-and-white dots must stay exact dots: no smoothing when the picture is scaled onto the label
+  if (baked && isMono(e)) css += 'image-rendering:pixelated;';
+  if (!baked) {
+    const filters = [];
+    if (e.invert) filters.push('invert(1)');
+    if (e.gray) filters.push('grayscale(1)');
+    if (filters.length) css += `filter:${filters.join(' ')};`;
+    const tf = [];
+    if (e.flipH) tf.push('scaleX(-1)');
+    if (e.flipV) tf.push('scaleY(-1)');
+    if (tf.length) css += `transform:${tf.join(' ')};`;
+  }
   img.style.cssText = css;
   wrap.style.overflow = 'hidden';
+  const corner = e.mask === 'circle' ? '50%' : (e.radius ? px(e.radius) : '');
+  if (corner) wrap.style.borderRadius = corner;
   wrap.append(img);
   if (e.stroke && e.strokeW) {
     const b = document.createElement('div');
-    b.style.cssText = `position:absolute;inset:0;border:${px(e.strokeW)} solid ${e.stroke};box-sizing:border-box`;
+    b.style.cssText = `position:absolute;inset:0;border:${px(e.strokeW)} solid ${e.stroke};box-sizing:border-box;border-radius:${corner || 0}`;
     wrap.append(b);
   }
 }
@@ -373,54 +388,6 @@ function offscreen() {
   return host;
 }
 
-const ditherCache = new Map();
-
-async function ditherImage(src, wDots, hDots, invert) {
-  const key = `${src.length}|${src.slice(-64)}|${wDots}x${hDots}|${invert}`;
-  if (ditherCache.has(key)) return ditherCache.get(key);
-  const img = new Image();
-  img.src = src;
-  await img.decode();
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, wDots);
-  c.height = Math.max(1, hDots);
-  const g = c.getContext('2d');
-  g.fillStyle = '#fff';
-  g.fillRect(0, 0, c.width, c.height);
-  g.drawImage(img, 0, 0, c.width, c.height);
-  const d = g.getImageData(0, 0, c.width, c.height);
-  const lum = new Float32Array(c.width * c.height);
-  for (let i = 0; i < lum.length; i++) {
-    const a = d.data[i * 4 + 3] / 255;
-    let l = (0.299 * d.data[i * 4] + 0.587 * d.data[i * 4 + 1] + 0.114 * d.data[i * 4 + 2]) * a + 255 * (1 - a);
-    if (invert) l = 255 - l;
-    lum[i] = l;
-  }
-  const W = c.width;
-  for (let y = 0; y < c.height; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = y * W + x, old = lum[i], nv = old < 128 ? 0 : 255, err = old - nv;
-      lum[i] = nv;
-      if (x + 1 < W) lum[i + 1] += (err * 7) / 16;
-      if (y + 1 < c.height) {
-        if (x > 0) lum[i + W - 1] += (err * 3) / 16;
-        lum[i + W] += (err * 5) / 16;
-        if (x + 1 < W) lum[i + W + 1] += err / 16;
-      }
-    }
-  }
-  for (let i = 0; i < lum.length; i++) {
-    const v = lum[i] < 128 ? 0 : 255;
-    d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = v;
-    d.data[i * 4 + 3] = 255;
-  }
-  g.putImageData(d, 0, 0);
-  const url = c.toDataURL('image/png');
-  if (ditherCache.size > 50) ditherCache.clear();
-  ditherCache.set(key, url);
-  return url;
-}
-
 /**
  * Render a label to a canvas at the given dpi.
  * opt: {dpi, rotate (0/90/180/270), offX, offY (mm), values}
@@ -429,20 +396,16 @@ export async function rasterize(label, opt = {}) {
   const dpi = opt.dpi || 203;
   const dpmm = dpi / 25.4;
   const errors = [];
-  // Pre-render "dither" images at the printer resolution
-  const dithered = new Map();
-  if (opt.mono !== false) {
-    for (const e of label.elements) {
-      if (e.type === 'image' && e.dither && !e.hidden) {
-        const crop = e.crop || [0, 0, 0, 0];
-        const fw = Math.max(0.01, 1 - crop[0] - crop[2]), fh = Math.max(0.01, 1 - crop[1] - crop[3]);
-        dithered.set(e.id, await ditherImage(e.src, Math.round((e.w / fw) * dpmm), Math.round((e.h / fh) * dpmm), e.invert));
-      }
+  // Edited pictures are processed at exactly the printer's dots, so the print matches the editor
+  const processed = new Map();
+  for (const e of label.elements) {
+    if (e.type === 'image' && !e.hidden && e.src && isEdited(e)) {
+      try { processed.set(e.id, await processFor(e, dpmm)); } catch (err) { /* shown as the original picture */ }
     }
   }
   const ctx = {
     mode: 'print', values: opt.values || null, dpmm, errors, fits: [],
-    imageSrc: (e) => dithered.get(e.id),
+    imageSrc: (e) => processed.get(e.id),
   };
   const root = renderLabel(label, ctx);
   const hostEl = offscreen();

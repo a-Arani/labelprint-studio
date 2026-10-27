@@ -19,6 +19,7 @@ sync_api = pytest.importorskip("playwright.sync_api")
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from app import printing  # noqa: E402
 from app.server import serve  # noqa: E402
 
 
@@ -144,3 +145,95 @@ def test_switch_language_to_right_to_left_and_back(page, app_url):
     page.locator(".lang-menu .menu-item", has_text="English").click()
     page.wait_for_load_state("load")
     page.wait_for_function("() => document.documentElement.dir === 'ltr'")
+
+
+def _photo_label(page):
+    """A label with a generated colour picture (white border around it) and nothing else."""
+    page.evaluate("""async () => {
+      const { api, uid } = await import('/js/util.js');
+      const c = document.createElement('canvas'); c.width = 600; c.height = 400;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, 600, 400);
+      const grad = g.createLinearGradient(60, 0, 540, 0); grad.addColorStop(0, '#103080'); grad.addColorStop(1, '#f0d070');
+      g.fillStyle = grad; g.fillRect(60, 50, 480, 300);
+      const doc = { name: 'Photo', version: 1, kind: 'label', variables: [], page: { w: 60, h: 40, printRotate: 'auto', bg: '#FFFFFF' },
+        elements: [{ id: uid(), type: 'image', x: 10, y: 5, w: 40, h: 30, rot: 0, src: c.toDataURL('image/png'), fit: 'fill', crop: [0, 0, 0, 0] }] };
+      await api('/api/library/save', { path: 'Photo', label: doc, overwrite: true });
+    }""")
+    page.reload()
+    page.wait_for_selector("#splash", state="detached", timeout=10000)
+    page.locator(".lib-file", has_text="Photo").first.click()
+    page.wait_for_function("() => document.getElementById('doc-title').textContent === 'Photo'")
+
+
+def test_image_editor_crop_and_black_white(page, app_url):
+    page.goto(app_url)
+    _photo_label(page)
+    page.evaluate("async () => { const st = await import('/js/state.js'); st.emit('image-edit', st.S.doc.elements[0]); }")
+    page.wait_for_selector(".ie-canvas")
+    page.locator(".ie-controls .btn", has_text="Trim borders").click()
+    page.wait_for_timeout(400)
+    page.locator(".ie-controls select").nth(1).select_option("threshold")
+    page.locator(".dlg-foot .btn-primary").click()
+    page.wait_for_timeout(800)
+    res = page.evaluate("""async () => {
+      const st = await import('/js/state.js');
+      const { rasterize } = await import('/js/render.js');
+      const e = st.S.doc.elements[0];
+      const c = await rasterize(st.S.doc, { dpi: 203 });
+      const k = 203 / 25.4, d = c.getContext('2d').getImageData(Math.round(e.x * k) + 2, Math.round(e.y * k) + 2, Math.round(e.w * k) - 4, Math.round(e.h * k) - 4).data;
+      let grey = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 24 && d[i] < 232) grey++;
+      return { mode: e.fx.mode, crop: e.crop, ratio: e.w / e.h, grey: grey / (d.length / 4) };
+    }""")
+    # The white border is cut away (the frame follows the 480 x 300 picture) and the print is pure black and white
+    assert res["mode"] == "threshold" and res["grey"] < 0.01
+    assert all(c > 0.05 for c in res["crop"]) and abs(res["ratio"] - 1.6) < 0.05
+
+
+def test_test_print_shift_and_printer_control(page, app_url):
+    page.goto(app_url)
+    _photo_label(page)
+    port, received = fake_printer()
+    page.click("#btn-print")
+    dlg = page.locator(".dlg").last
+    dlg.locator("select").nth(1).select_option("network")
+    dlg.locator("input[placeholder='192.168.1.50']").fill("127.0.0.1")
+    dlg.locator("label.field", has=page.locator("span", has_text="Port")).locator("input").fill(str(port))
+
+    def test_print():
+        n = received.count(b"PRINT 1,")
+        dlg.locator(".pa-head .btn").click()
+        for _ in range(100):
+            if received.count(b"PRINT 1,") > n:
+                break
+            time.sleep(0.1)
+        return printing.decode_tspl_bitmaps(bytes(received))[-1]
+
+    def first_ink(bm):
+        wb, hh, data = bm
+        return min(x for y in range(hh) for x in range(wb * 8) if not (data[y * wb + (x >> 3)] & (0x80 >> (x & 7))))
+
+    before = first_ink(test_print())
+    for _ in range(4):
+        dlg.locator(".pa-arrow", has_text="→").click()
+    page.wait_for_timeout(600)
+    # 4 steps of 0.5 mm = 2 mm = 16 dots at 203 dpi
+    assert first_ink(test_print()) - before == 16
+    # Test prints are not recorded in the history
+    jobs = page.evaluate("async () => { const st = await import('/js/state.js'); return (await (await fetch('/api/history/label?uid=' + st.S.doc.uid)).json()).summary.jobs; }")
+    assert jobs == 0
+    dlg.locator(".dlg-x").click()
+
+    page.evaluate("async () => { const m = await import('/js/printercontrol.js'); m.openPrinterControl(); }")
+    pc = page.locator(".dlg").last
+    pc.locator("select").nth(1).select_option("network")
+    pc.locator("input[placeholder='192.168.1.50']").fill("127.0.0.1")
+    pc.locator("label.field", has=page.locator("span", has_text="Port")).locator("input").fill(str(port))
+    pc.locator(".pc-dist input").fill("5")
+    pc.locator("button", has_text="Reverse feed").click()
+    for _ in range(50):
+        if b"BACKFEED 40" in received:
+            break
+        time.sleep(0.1)
+    assert b"BACKFEED 40\r\n" in received

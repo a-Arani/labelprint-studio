@@ -14,6 +14,7 @@ import { newProductDialog, openProducts, makeTemplateFrom, loadLabel } from './p
 import { openAbout, langMenu, appMeta } from './about.js';
 import * as logger from './logger.js';
 import { mediaById } from './media.js';
+import { openPrinterControl } from './printercontrol.js';
 
 const $ = (id) => document.getElementById(id);
 let editor;
@@ -213,6 +214,7 @@ function moreMenu(anchor) {
     { label: t('logs.title'), fn: () => openLogs() },
     { label: t('more.openLibrary'), fn: openData('library') },
     { label: t('more.trash'), fn: openData('trash') },
+    { label: t('pc.open'), fn: () => openPrinterControl() },
     '-',
     { label: t('lang.title') + '…', fn: () => langMenu(anchor, switchLang) },
     { label: t('more.about'), fn: () => openAbout(switchLang) },
