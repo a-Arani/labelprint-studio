@@ -96,8 +96,9 @@ class App:
         lib, hist = self.library, self.history
         if path == "/api/health":
             # Also a sign of life: a second start of the app checks here before it opens its window
+            # (and replaces this server if it belongs to another installation or version)
             self.last_contact = time.time()
-            return {"ok": True, **meta.as_dict()}
+            return {"ok": True, **meta.as_dict(), "root": str(ROOT)}
         if path == "/api/ping":
             self.clients[str(body.get("client", "?"))] = self.last_contact = time.time()
             self.said_bye = False
@@ -337,9 +338,13 @@ def serve(data_dir: Path, host: str = "127.0.0.1", port: int = 8803, idle_exit: 
     httpd.daemon_threads = True
     if idle_exit or closed is not None:
         def watchdog():
+            tick = time.time()
             while True:
                 time.sleep(0.5)
                 now = time.time()
+                if now - tick > 10:  # the computer was asleep: give the open windows time to ping again
+                    app.last_contact = now
+                tick = now
                 if closed is not None and closed.is_set():
                     at = getattr(closed, "at", now)
                     if any(seen > at for seen in app.clients.values()):

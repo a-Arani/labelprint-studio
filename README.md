@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.4-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.5-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -194,11 +194,11 @@ You do **not** need to install Python or anything else; everything is included.
 
 ### Update to a new version
 
-Close the app, download and extract the new zip, then copy the folders `app`, `web`, `python` and the file `run.py` over your installation folder. Your `data` folder (labels, settings, print history) stays untouched.
+Close the app, download and extract the new zip, then copy the folders `app`, `web`, `python`, the file `run.py` and the `.bat` files over your installation folder. Your `data` folder (labels, settings, print history) stays untouched.
 
 ### Uninstall
 
-Delete the installation folder and the desktop shortcut. Copy the `data` folder somewhere first if you want to keep your labels. The app window's own browser profile is in `%LOCALAPPDATA%\LabelPrintStudio\browser`; you can delete it too.
+Run **`Stop LabelPrint Studio.bat`** in the installation folder (it ends every running part of the app, also of older versions or other copies), then delete the folder and the desktop shortcut. Copy the `data` folder somewhere first if you want to keep your labels. The app window's own browser profile is in `%LOCALAPPDATA%\LabelPrintStudio\browser`; you can delete it too.
 
 ## 🚀 Print your first label
 

@@ -2,6 +2,7 @@
 
     python run.py              start the server and open the app window; closing the window stops the server
     python run.py --server     server only (development)
+    python run.py --stop       stop every running part of the app (any installation), e.g. before deleting its folder
     python run.py --port 8804 --data D:\\labels    custom port and data folder
 """
 import json
@@ -20,7 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 os.chdir(ROOT)
 
-from app import meta  # noqa: E402
+from app import meta, procs  # noqa: E402
 from app.server import serve  # noqa: E402
 
 
@@ -76,26 +77,68 @@ def open_window(url: str):
         shutil.which("msedge") or "",
         shutil.which("chrome") or "",
     ]
+    profile = profile_dir()
+    profile.mkdir(parents=True, exist_ok=True)
     for exe in candidates:
         if exe and os.path.isfile(exe):
-            return subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile_dir()}", "--no-first-run",
-                                     "--no-default-browser-check", "--disable-background-mode", "--start-maximized"])
+            # Started outside the app folder, so the browser never holds that folder open
+            return subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run",
+                                     "--no-default-browser-check", "--disable-background-mode", "--start-maximized"],
+                                    cwd=str(profile))
     webbrowser.open(url)
     return None
 
 
+def stop_all():
+    """`run.py --stop`: end every running part of the app, of any installation or version."""
+    print(f"Stopping {meta.APP_NAME}...")
+    found = procs.find()
+    labels = {"server": "server", "window": "app window", "old-window": "app window of an older version (Microsoft Edge or Chrome)"}
+    for p in procs.stop(found):
+        print(f"  stopped: {labels[p['kind']]} (process {p['pid']}){'  ' + p['install'] if p['install'] else ''}")
+    if not found:
+        print("Nothing of the app is running.")
+    else:
+        print("Done. The app folder can now be moved or deleted.")
+
+
+def replace_other(port: int) -> bool:
+    """Stop a server of another installation or version that holds this port; True when the port is free again."""
+    pid = procs.listening_pid(port)
+    if pid is None or pid not in {p["pid"] for p in procs.find() if p["kind"] == "server"}:
+        return False
+    procs.stop([{"pid": pid}])
+    for _ in range(50):
+        if health(port) is None:
+            return True
+        time.sleep(0.1)
+    return False
+
+
+def same_app(h: dict) -> bool:
+    """A server of this very installation and version."""
+    return (h.get("name") == meta.APP_NAME and h.get("version") == meta.VERSION
+            and os.path.normcase(h.get("root") or "") == os.path.normcase(str(ROOT)))
+
+
 def main():
+    if "--stop" in sys.argv:
+        stop_all()
+        return
     server_only = "--server" in sys.argv
     port = int(_arg("--port", "8803"))
-    # Reuse a running copy of this app; skip ports taken by anything else
+    # Reuse a running copy of this app; replace one of another folder or version (such as an older copy still
+    # running); skip ports taken by anything else
     for _ in range(10):
         h = health(port)
         if h is None:
             break
-        if h.get("name") == meta.APP_NAME:
+        if same_app(h):
             if not server_only:
                 open_window(f"http://127.0.0.1:{port}/")
             return
+        if replace_other(port):
+            break
         port += 1
     url = f"http://127.0.0.1:{port}/"
     data = data_dir()
@@ -122,6 +165,8 @@ def main():
             closed.set()
     threading.Thread(target=opener, daemon=True).start()
     serve(data, port=port, idle_exit=60, closed=closed)
+    # Nothing of the app stays behind: an app window that no longer answers goes with the server
+    procs.stop([p for p in procs.find() if p["kind"] == "window"])
 
 
 if __name__ == "__main__":

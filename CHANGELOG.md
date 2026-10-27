@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.5] - 2026-10-27
+
+### Added
+- **`Stop LabelPrint Studio.bat`** in the app folder (and `run.py --stop`): ends every running part of the app (servers of any copy or version, and app windows), for example before moving or deleting the folder.
+
+### Fixed
+- Starting the app while a copy from another folder or an older version is still running replaced that copy instead of connecting to it, which kept the old version running and its folder locked.
+- The app window is started outside the app folder, so the browser never keeps that folder in use.
+- After the computer wakes from sleep, the app no longer stops while its window is open.
+- If the app stops while its window is still open, the window is closed too.
+
 ## [2.1.4] - 2026-10-27
 
 ### Added
@@ -84,6 +95,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.5]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.5
 [2.1.4]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.4
 [2.1.3]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.3
 [2.1.2]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.2

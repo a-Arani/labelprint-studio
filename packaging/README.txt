@@ -11,9 +11,14 @@ GETTING STARTED
   The interface language can be changed with the globe button at the top (English, Persian, Arabic,
   Spanish, Chinese, French, German, Russian, Turkish, Portuguese).
 
+STOPPING THE APP
+  Closing the app window stops everything within a few seconds. To be sure nothing of the app is
+  running (for example before moving or deleting this folder), run "Stop LabelPrint Studio.bat".
+  It also stops copies in other folders and older versions.
+
 UPDATING FROM AN EARLIER VERSION
-  Close the app, unpack the new zip and copy the folders app, web, python and the file run.py over
-  the old folder. The data folder is not touched, so all labels, settings and history stay.
+  Close the app, unpack the new zip and copy the folders app, web, python, the file run.py and the
+  .bat files over the old folder. The data folder is not touched, so all labels, settings and history stay.
   Coming from version 1.x: copy its data folder into this folder.
 
 YOUR LABELS ARE SAFE
