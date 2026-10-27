@@ -57,8 +57,16 @@ def health(port: int) -> dict | None:
         return None
 
 
+def profile_dir() -> Path:
+    """The app window's own browser profile: it runs apart from the user's browser and fully exits when closed."""
+    explicit = _arg("--profile", "")
+    if explicit:
+        return Path(explicit)
+    return Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / meta.APP_ID / "browser"
+
+
 def open_window(url: str):
-    """A separate app window (Edge or Chrome in --app mode); otherwise the default browser."""
+    """A separate app window (Edge or Chrome in --app mode), returned as its process; otherwise the default browser."""
     candidates = [
         os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
         os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
@@ -70,9 +78,10 @@ def open_window(url: str):
     ]
     for exe in candidates:
         if exe and os.path.isfile(exe):
-            subprocess.Popen([exe, f"--app={url}", "--new-window", "--start-maximized"])
-            return
+            return subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile_dir()}", "--no-first-run",
+                                     "--no-default-browser-check", "--disable-background-mode", "--start-maximized"])
     webbrowser.open(url)
+    return None
 
 
 def main():
@@ -95,14 +104,24 @@ def main():
         serve(data, port=port)
         return
 
+    closed = threading.Event()
+
     def opener():
         for _ in range(50):
             if health(port):
                 break
             time.sleep(0.1)
-        open_window(url)
+        proc = open_window(url)
+        if proc is None:
+            return
+        started = time.time()
+        proc.wait()
+        # A browser that hands the window to an instance already running exits at once; then the window's pings decide
+        if time.time() - started > 5:
+            closed.at = time.time()
+            closed.set()
     threading.Thread(target=opener, daemon=True).start()
-    serve(data, port=port, idle_exit=180)
+    serve(data, port=port, idle_exit=60, closed=closed)
 
 
 if __name__ == "__main__":

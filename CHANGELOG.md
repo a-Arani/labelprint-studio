@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.1] - 2026-10-27
+
+### Changed
+- Closing the app window now stops everything within a few seconds: the app window runs in its own browser profile with background mode off, the launcher watches it, and the server stops as soon as the last window is gone (a reload or language switch keeps it running). Before, the server waited up to 3 minutes, and Edge could keep running in the background.
+- The start-up screen stays a little longer (3 seconds).
+
 ## [2.1.0] - 2026-10-27
 
 ### Added
@@ -56,5 +62,6 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.1
 [2.1.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.0
 [2.0.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.0.0

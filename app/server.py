@@ -30,7 +30,7 @@ mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("application/json", ".json")
 
 # Frequent requests are only logged with --debug
-QUIET = {"/api/ping", "/api/library/thumb", "/api/log", "/api/library/tree", "/api/fonts"}
+QUIET = {"/api/ping", "/api/bye", "/api/library/thumb", "/api/log", "/api/library/tree", "/api/fonts"}
 DATA_FOLDERS = ("", "logs", "backups", "library", "trash")
 
 
@@ -64,7 +64,10 @@ class App:
         self.library = Library(data_dir)
         self.settings = Settings(data_dir / "settings.json")
         self.history = History(data_dir / "history.db")
-        self.last_ping = time.time()
+        # Open app windows: client id -> last ping. When the last window says goodbye, the server stops.
+        self.clients: dict[str, float] = {}
+        self.last_contact = time.time()
+        self.said_bye = False
         threading.Thread(target=self._startup_report, name="startup", daemon=True).start()
         threading.Thread(target=self._backup_loop, name="backup", daemon=True).start()
 
@@ -92,9 +95,17 @@ class App:
     def route(self, method: str, path: str, q: dict, body: dict):
         lib, hist = self.library, self.history
         if path == "/api/health":
+            # Also a sign of life: a second start of the app checks here before it opens its window
+            self.last_contact = time.time()
             return {"ok": True, **meta.as_dict()}
         if path == "/api/ping":
-            self.last_ping = time.time()
+            self.clients[str(body.get("client", "?"))] = self.last_contact = time.time()
+            self.said_bye = False
+            return {"ok": True}
+        if path == "/api/bye":
+            self.clients.pop(str(body.get("client", "?")), None)
+            self.last_contact = time.time()
+            self.said_bye = not self.clients
             return {"ok": True}
         if path == "/api/fonts":
             return {"fonts": fonts.list_fonts(refresh=q.get("refresh") == "1")}
@@ -315,19 +326,38 @@ def make_handler(app: App):
     return Handler
 
 
-def serve(data_dir: Path, host: str = "127.0.0.1", port: int = 8803, idle_exit: float = 0) -> None:
-    """idle_exit: stop the server when no page has pinged for this many seconds (0 = never)."""
+def serve(data_dir: Path, host: str = "127.0.0.1", port: int = 8803, idle_exit: float = 0,
+          bye_grace: float = 4, closed: threading.Event | None = None) -> None:
+    """idle_exit: stop when no window has been heard from for this many seconds (0 = never).
+    bye_grace: after the last window closes, wait this long (a reload or language switch comes straight back).
+    closed: set by the launcher when its app window closes (with closed.at = the time); the server then stops
+    within 2 seconds, unless the app was started again meanwhile."""
     app = App(data_dir)
     httpd = ThreadingHTTPServer((host, port), make_handler(app))
     httpd.daemon_threads = True
-    if idle_exit:
+    if idle_exit or closed is not None:
         def watchdog():
             while True:
-                time.sleep(15)
-                if time.time() - app.last_ping > idle_exit:
-                    LOG.info("The app window was closed; stopping the server")
-                    httpd.shutdown()
-                    return
+                time.sleep(0.5)
+                now = time.time()
+                if closed is not None and closed.is_set():
+                    at = getattr(closed, "at", now)
+                    if any(seen > at for seen in app.clients.values()):
+                        closed.clear()          # a new window opened meanwhile
+                    elif now - max(at, app.last_contact) > 2:
+                        LOG.info("The app window was closed; stopping the server")
+                        break
+                if not idle_exit:
+                    continue
+                for cid, seen in list(app.clients.items()):
+                    if now - seen > 45:
+                        app.clients.pop(cid, None)
+                if app.clients:
+                    continue
+                if now - app.last_contact > (bye_grace if app.said_bye else idle_exit):
+                    LOG.info("No app window is open; stopping the server")
+                    break
+            httpd.shutdown()
         threading.Thread(target=watchdog, name="watchdog", daemon=True).start()
     LOG.info("Server ready at http://%s:%d", host, port)
     try:

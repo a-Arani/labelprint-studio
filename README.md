@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.0-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.1-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -198,7 +198,7 @@ Close the app, download and extract the new zip, then copy the folders `app`, `w
 
 ### Uninstall
 
-Delete the installation folder and the desktop shortcut. Copy the `data` folder somewhere first if you want to keep your labels.
+Delete the installation folder and the desktop shortcut. Copy the `data` folder somewhere first if you want to keep your labels. The app window's own browser profile is in `%LOCALAPPDATA%\LabelPrintStudio\browser`; you can delete it too.
 
 ## 🚀 Print your first label
 
@@ -318,7 +318,7 @@ Run the tests with `pip install -r requirements-dev.txt` and `python -m pytest -
 
 ### Where your labels are stored
 
-Everything is stored in the `data` folder inside the installation folder (or in `%LOCALAPPDATA%\LabelPrintStudio` if that folder is read-only): labels in `data\library`, previous versions in `data\versions`, deleted labels in `data\trash`, daily backups in `data\backups`, logs in `data\logs` and the print history in `data\history.db`.
+Everything is stored in the `data` folder inside the installation folder (or in `%LOCALAPPDATA%\LabelPrintStudio` if that folder is read-only): labels in `data\library`, previous versions in `data\versions`, deleted labels in `data\trash`, daily backups in `data\backups`, logs in `data\logs` and the print history in `data\history.db`. Closing the app window stops the app completely within a few seconds; nothing keeps running in the background.
 
 ## 🤝 Contributing
 

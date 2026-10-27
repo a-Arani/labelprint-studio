@@ -24,7 +24,9 @@ let saving = false;
 // [tool, shortcut key]
 const TOOLS = [['select', 'v'], ['text', 't'], ['rect', 'r'], ['ellipse', 'e'], ['line', 'l'], ['pen', 'p'], ['image', 'i'], ['barcode', 'b'], ['qr', 'q']];
 const PRESETS = [[100, 50], [100, 25], [100, 75], [100, 100], [100, 150], [55, 50], [50, 25], [50, 30], [40, 30], [60, 40]];
-const SPLASH_MIN_MS = 1400;
+const SPLASH_MIN_MS = 3000;
+// This window, for the server: it stops when the last app window is closed
+const CLIENT = uid();
 
 const folderLabel = () => S.folder || t('lib.title');
 
@@ -422,6 +424,12 @@ function hideSplash() {
 
 // ---------------------------------------------------------------- start
 async function boot() {
+  const ping = () => api('/api/ping', { client: CLIENT }).catch(() => {});
+  ping();
+  setInterval(ping, 15000);
+  window.addEventListener('pagehide', () => {
+    try { navigator.sendBeacon('/api/bye', new Blob([JSON.stringify({ client: CLIENT })], { type: 'text/plain' })); } catch (e) { /* the server stops on its own */ }
+  });
   try { S.settings = await api('/api/settings/get', {}); } catch (e) { S.settings = {}; }
   let stored = null;
   try { stored = localStorage.getItem('ls.lang'); } catch (e) { /* storage unavailable */ }
@@ -495,9 +503,6 @@ async function boot() {
   try { reopen = localStorage.getItem('ls.reopen'); localStorage.removeItem('ls.reopen'); } catch (e) { /* storage unavailable */ }
   if (reopen) openFile(reopen);
   hideSplash();
-  const ping = () => api('/api/ping', {}).catch(() => {});
-  ping();
-  setInterval(ping, 20000);
 }
 
 boot().catch((e) => {

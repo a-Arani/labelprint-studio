@@ -13,7 +13,7 @@ python run.py            # opens the app window
 python run.py --server   # server only, then open http://127.0.0.1:8803
 ```
 
-Options: `--port 8810` and `--data D:\Labels` (or the `LABEL_PORT` / `LABEL_DATA` environment variables).
+Options: `--port 8810` and `--data D:\Labels` (or the `LABEL_PORT` / `LABEL_DATA` environment variables). The app window uses its own browser profile in `%LOCALAPPDATA%\LabelPrintStudio\browser` (`--profile` to change it), so it closes completely; the server stops a few seconds after the last window closes.
 
 ## Tests
 
