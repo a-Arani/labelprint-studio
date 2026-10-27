@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.7] - 2026-10-27
+
+### Changed
+- Library: a click on empty space in the list unselects the folder, so the buttons above it (new label, new folder, import) act on the top level again. A selected (blue) folder is where they act; the highlighted *Library* title shows the top level is selected.
+
 ## [2.1.6] - 2026-10-27
 
 ### Fixed
@@ -102,6 +107,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.7]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.7
 [2.1.6]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.6
 [2.1.5]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.5
 [2.1.4]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.4

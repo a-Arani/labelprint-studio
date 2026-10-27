@@ -240,6 +240,10 @@ export function initLibrary(appApi) {
   search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); draw(); });
   const root = pane.querySelector('#lib-root');
   root.onclick = () => { S.folder = ''; draw(); };
+  // A click on empty space in the list unselects the folder: the buttons above then act on the top level
+  pane.querySelector('#lib-tree').addEventListener('click', (e) => {
+    if (S.folder && !e.target.closest('.lib-row')) { S.folder = ''; draw(); }
+  });
 
   // Drag and drop onto folders
   let dragPath = null;

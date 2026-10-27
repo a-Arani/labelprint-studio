@@ -277,3 +277,24 @@ def test_folder_names_keep_slash_and_star(page, app_url):
     page.locator(".lib-folder", has_text="50\u00d7100").wait_for()
     names = page.evaluate("async () => (await (await fetch('/api/library/tree')).json()).folders.map((f) => f.name)")
     assert "50\u00d7100" in names and "50" not in names
+
+
+def test_click_on_empty_space_selects_the_top_level(page, app_url):
+    """A selected (blue) folder is where the library buttons act; a click on empty space goes back to the top level."""
+    page.keyboard.press("Escape")
+    folder = page.locator(".lib-folder").first
+    folder.click()
+    page.wait_for_function("() => document.querySelector('.lib-folder.active') !== null")
+    assert page.evaluate("async () => (await import('/js/state.js')).S.folder") != ""
+    box = page.locator("#lib-tree").bounding_box()
+    page.mouse.click(box["x"] + box["width"] / 2, box["y"] + box["height"] - 15)
+    page.wait_for_function("() => document.querySelector('.lib-folder.active') === null")
+    assert page.evaluate("async () => (await import('/js/state.js')).S.folder") == ""
+    assert "active" in page.locator("#lib-root").get_attribute("class")
+    # A new folder now goes to the top level
+    page.locator("#lib-new-folder").click()
+    page.locator(".dlg input").fill("Top level")
+    page.locator(".dlg input").press("Enter")
+    page.locator(".lib-folder", has_text="Top level").wait_for()
+    names = page.evaluate("async () => (await (await fetch('/api/library/tree')).json()).folders.map((f) => f.name)")
+    assert "Top level" in names
