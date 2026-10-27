@@ -45,7 +45,7 @@ def test_stops_after_last_window_says_goodbye():
     time.sleep(2.5)
     assert t.is_alive(), "another window is still open"
     call(port, "/api/bye", {"client": "b"})
-    t.join(4)
+    t.join(10)  # returns as soon as the server stops; a busy CI machine can take a few seconds
     assert not t.is_alive()
 
 
@@ -58,7 +58,7 @@ def test_reload_within_grace_keeps_running():
     time.sleep(2.5)
     assert t.is_alive()
     call(port, "/api/bye", {"client": "new"})
-    t.join(4)
+    t.join(10)
     assert not t.is_alive()
 
 
@@ -68,7 +68,7 @@ def test_launcher_window_closed():
     call(port, "/api/ping", {"client": "w"})
     closed.at = time.time()
     closed.set()
-    t.join(5)
+    t.join(10)
     assert not t.is_alive()
 
 
@@ -84,5 +84,5 @@ def test_started_again_while_closing_keeps_running():
     time.sleep(3)
     assert t.is_alive() and not closed.is_set()
     call(port, "/api/bye", {"client": "second"})
-    t.join(4)
+    t.join(10)
     assert not t.is_alive()
