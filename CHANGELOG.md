@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.6] - 2026-10-27
+
+### Fixed
+- An old folder could not be deleted although every file in it could: the window of *Create Desktop Shortcut.bat* (or *Stop LabelPrint Studio.bat*) waiting at "Press any key" kept the folder in use. Both now wait outside the app folder.
+- *Stop LabelPrint Studio* also finds a copy whose files were already deleted while it was running.
+- An app window left open from an earlier start (for example one an older version opened) is closed when the app starts, so the new window gets a browser of its own; Edge's "restore pages" bar is not shown after that.
+
 ## [2.1.5] - 2026-10-27
 
 ### Added
@@ -95,6 +102,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.6]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.6
 [2.1.5]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.5
 [2.1.4]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.4
 [2.1.3]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.3

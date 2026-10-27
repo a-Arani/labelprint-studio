@@ -87,3 +87,34 @@ def test_real_process_list_includes_this_test_run():
     finally:
         if p.poll() is None:
             p.kill()
+
+
+def test_copy_with_deleted_files_is_found_by_its_answer(monkeypatch):
+    """Only the running python of a copy is left (the rest was deleted): its server's answer identifies it."""
+    import socket
+    import threading
+    import time
+    import urllib.request
+
+    from app.server import serve
+
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    port = s.getsockname()[1]
+    s.close()
+    threading.Thread(target=serve, args=(Path(tempfile.mkdtemp()),), kwargs={"port": port}, daemon=True).start()
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1)
+            break
+        except OSError:
+            time.sleep(0.1)
+    gone = Path(tempfile.mkdtemp()) / "deleted copy"
+    rows = [{"ProcessId": 31, "Name": "pythonw.exe", "ExecutablePath": str(gone / "python" / "pythonw.exe"),
+             "CommandLine": f'"{gone / "python" / "pythonw.exe"}" "{gone / "run.py"}"'},
+            {"ProcessId": 32, "Name": "pythonw.exe", "ExecutablePath": str(gone / "python" / "pythonw.exe"),
+             "CommandLine": f'"{gone / "python" / "pythonw.exe"}" "{gone / "run.py"}"'}]
+    monkeypatch.setattr(procs, "_list", lambda: rows)
+    monkeypatch.setattr(procs, "_listeners", lambda: {port: 31, 1: 32})   # 32 listens where nothing answers
+    found = procs.find(exclude=0)
+    assert [(p["pid"], p["install"]) for p in found] == [(31, str(gone))]

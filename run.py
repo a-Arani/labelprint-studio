@@ -83,7 +83,8 @@ def open_window(url: str):
         if exe and os.path.isfile(exe):
             # Started outside the app folder, so the browser never holds that folder open
             return subprocess.Popen([exe, f"--app={url}", f"--user-data-dir={profile}", "--no-first-run",
-                                     "--no-default-browser-check", "--disable-background-mode", "--start-maximized"],
+                                     "--no-default-browser-check", "--disable-background-mode", "--hide-crash-restore-bubble",
+                                     "--start-maximized"],
                                     cwd=str(profile))
     webbrowser.open(url)
     return None
@@ -150,6 +151,9 @@ def main():
     closed = threading.Event()
 
     def opener():
+        # An app window still open from an earlier start has lost its server; it is closed so the new window gets
+        # a browser of its own (one an older version started could keep that version's folder in use)
+        procs.stop([p for p in procs.find() if p["kind"] == "window"])
         for _ in range(50):
             if health(port):
                 break

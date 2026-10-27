@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.5-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.6-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.

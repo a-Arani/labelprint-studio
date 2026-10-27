@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import urllib.request
 from pathlib import Path
 
 from . import meta
@@ -44,16 +45,35 @@ def _list() -> list[dict]:
 
 
 def _install_of(row: dict) -> Path | None:
-    """The installation a Python process runs: from the run.py on its command line, or its bundled python folder."""
+    """The installation a Python process runs: from the run.py on its command line, or its bundled python folder.
+    A copy whose files were deleted while it ran still counts when its server answers as this app."""
     m = _RUN_PY.search(row.get("CommandLine") or "")
     if not m:
         return None
     script = Path(m.group(1) or m.group(2))
-    folders = ([script.parent] if script.is_absolute() else []) + [Path(row.get("ExecutablePath") or ".").parent.parent]
+    exe = Path(row.get("ExecutablePath") or ".")
+    folders = ([script.parent] if script.is_absolute() else []) + [exe.parent.parent]
     for folder in folders:
         if is_install(folder):
             return folder.resolve()
+    if exe.parent.name.lower() == "python" and _answers_as_app(int(row.get("ProcessId") or 0)):
+        return exe.parent.parent
     return None
+
+
+def _answers_as_app(pid: int) -> bool:
+    """The process listens on a port where this app's server answers."""
+    for port, owner in _listeners().items():
+        if owner != pid:
+            continue
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=2) as r:
+                h = json.loads(r.read().decode("utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(h, dict) and str(h.get("name", "")).replace(" ", "").lower() in ("labelprintstudio", "labelstudio"):
+            return True
+    return False
 
 
 def find(exclude: int | None = None) -> list[dict]:
@@ -93,18 +113,26 @@ def stop(found: list[dict]) -> list[dict]:
     return done
 
 
-def listening_pid(port: int) -> int | None:
-    """The process that listens on this local TCP port."""
+def _listeners() -> dict[int, int]:
+    """Local TCP ports being listened on, with the process listening on each."""
     if not IS_WIN:
-        return None
+        return {}
     try:
         out = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True, timeout=30,
                              creationflags=NO_WINDOW).stdout.decode("ascii", "replace")
     except (OSError, subprocess.SubprocessError):
-        return None
+        return {}
+    found = {}
     for line in out.splitlines():
         parts = line.split()
         # Only a listening socket has no remote end (the state's name depends on the Windows language)
-        if len(parts) >= 5 and parts[1].endswith(f":{port}") and parts[2] in ("0.0.0.0:0", "[::]:0") and parts[-1].isdigit():
-            return int(parts[-1])
-    return None
+        if len(parts) >= 5 and parts[2] in ("0.0.0.0:0", "[::]:0") and parts[-1].isdigit():
+            port = parts[1].rsplit(":", 1)[-1]
+            if port.isdigit():
+                found.setdefault(int(port), int(parts[-1]))
+    return found
+
+
+def listening_pid(port: int) -> int | None:
+    """The process that listens on this local TCP port."""
+    return _listeners().get(port)
