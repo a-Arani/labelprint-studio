@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "Uma pasta não pode ser copiada para dentro dela mesma",
   "err.lib.dest_not_found": "Pasta de destino não encontrada",
   "err.lib.empty_name": "O nome está vazio",
+  "err.lib.in_use": "Outro programa está usando isso (por exemplo, o Explorador de Arquivos ou o OneDrive). Feche-o lá e tente novamente.",
   "err.lib.file_not_found": "Arquivo não encontrado",
   "err.lib.move_into_self": "Uma pasta não pode ser movida para dentro dela mesma",
   "err.lib.name_exists": "Este nome já existe",

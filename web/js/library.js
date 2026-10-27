@@ -1,6 +1,6 @@
 // Label library: folder tree, open, Word/PowerPoint import, rename, move, delete
 import { S, emit, on } from './state.js';
-import { h, api, toast, askText, confirmBox, pickFiles, fileToBase64 } from './util.js';
+import { h, api, toast, askText, confirmBox, pickFiles, fileToBase64, inFolder } from './util.js';
 import { thumbnail } from './render.js';
 import { ICONS } from './icons.js';
 import { t } from './i18n.js';
@@ -59,7 +59,7 @@ function draw() {
           draw();
         },
         oncontextmenu: (e) => menu(e, node, 'folder'),
-      }, h('span', { class: 'caret' + (expanded ? ' open' : '') }, '▸'), icon('folder'), h('span', { class: 'nm' }, node.name),
+      }, h('span', { class: 'caret' + (expanded ? ' open' : '') }, '▸'), icon('folder'), h('span', { class: 'nm' }, h('bdi', {}, node.name)),
       node.printed ? h('span', { class: 'cnt', title: t('lib.folderPrinted', { n: node.printed }) }, String(node.printed)) : null));
     }
     if (!expanded && !isRoot) return;
@@ -75,7 +75,8 @@ function draw() {
       }, f.thumb
         ? h('img', { class: 'thumb', loading: 'lazy', src: `/api/library/thumb?path=${encodeURIComponent(f.path)}&t=${f.mtime}` })
         : h('span', { class: 'thumb empty' }, icon('file')),
-      h('span', { class: 'nm' }, f.name),
+      // <bdi>: each name keeps its own direction, so "50×100" never reads backwards in a right-to-left interface
+      h('span', { class: 'nm' }, h('bdi', {}, f.name)),
       f.kind === 'template' ? h('span', { class: 'pill', title: t('lib.templateTip') }, t('lib.template')) : null,
       f.printed ? h('span', {
         class: 'cnt', title: t('lib.printed', { n: f.printed }) + Object.entries(f.counters || {}).map(([k, v]) => ' — ' + t('lib.lastCounter', { name: k, value: v })).join(''),
@@ -158,7 +159,7 @@ async function newFolder(parent = S.folder) {
   const name = await askText(t('lib.newFolder'), '', t('lib.folderName'));
   if (!name) return;
   try {
-    const { path } = await api('/api/library/mkdir', { path: (parent ? parent + '/' : '') + name });
+    const { path } = await api('/api/library/mkdir', { path: inFolder(parent, name) });
     open.add(parent);
     open.add(path);
     saveOpen();

@@ -1,6 +1,6 @@
 // App start-up: top bar, tools, shortcuts, opening and saving labels, language and splash
 import { S, on, emit, select, selected, setDoc, doUndo, doRedo, canUndo, canRedo } from './state.js';
-import { h, api, toast, dialog, pickFiles, fileToDataURL, shrinkImage, uid, r2, PXMM, dims } from './util.js';
+import { h, api, toast, dialog, pickFiles, fileToDataURL, shrinkImage, uid, r2, PXMM, dims, inFolder } from './util.js';
 import { t, loadLang, detectLang, applyDom, isRTL, lang } from './i18n.js';
 import { Editor } from './editor.js';
 import { initPanels, applyText, refreshFormat } from './panels.js';
@@ -81,7 +81,7 @@ async function newLabel() {
   const doc = normalize({ name: name.value.trim() || t('doc.newName'), page: { w: parseFloat(w.value) || 100, h: parseFloat(hh.value) || 50 } });
   try {
     const thumb = await thumbnail(doc);
-    const { path, uid: newUid } = await api('/api/library/save', { path: (S.folder ? S.folder + '/' : '') + doc.name, label: doc, thumb, overwrite: false });
+    const { path, uid: newUid } = await api('/api/library/save', { path: inFolder(S.folder, doc.name), label: doc, thumb, overwrite: false });
     doc.name = path.split('/').pop().replace(/\.lbl$/, '');
     doc.uid = newUid;
     logger.info(`New label: ${path} ${doc.page.w}x${doc.page.h}`);
@@ -129,7 +129,7 @@ async function saveAs() {
   await flushSave();
   try {
     const thumb = await thumbnail(S.doc);
-    const { path, uid: newUid } = await api('/api/library/save', { path: (S.folder ? S.folder + '/' : '') + name.value.trim(), label: { ...S.doc, uid: undefined }, thumb, overwrite: false });
+    const { path, uid: newUid } = await api('/api/library/save', { path: inFolder(S.folder, name.value.trim()), label: { ...S.doc, uid: undefined }, thumb, overwrite: false });
     S.path = path;
     S.doc.uid = newUid;
     logger.info(`Saved as: ${path}`);

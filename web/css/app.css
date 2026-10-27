@@ -52,7 +52,7 @@ input, select, textarea { font: inherit; color: inherit; }
 .lang-btn .lbl { font-size: 11px; font-weight: 700; letter-spacing: .3px; color: var(--muted); }
 .tgroup { display: flex; align-items: center; gap: 2px; padding-inline-end: 8px; border-inline-end: 1px solid var(--line); }
 .doc-name { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: baseline; justify-content: center; overflow: hidden; white-space: nowrap; }
-#doc-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; }
+#doc-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; unicode-bidi: plaintext; }
 #doc-folder { font-size: 12px; }
 .icon-btn, .tbtn-l {
   display: inline-flex; align-items: center; gap: 5px; height: 32px; min-width: 32px; padding: 0 7px;

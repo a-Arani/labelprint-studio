@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "Una carpeta no se puede copiar dentro de sí misma",
   "err.lib.dest_not_found": "No se encontró la carpeta de destino",
   "err.lib.empty_name": "El nombre está vacío",
+  "err.lib.in_use": "Otro programa lo está usando (por ejemplo, el Explorador de archivos u OneDrive). Ciérrelo allí e inténtelo de nuevo.",
   "err.lib.file_not_found": "No se encontró el archivo",
   "err.lib.move_into_self": "Una carpeta no se puede mover dentro de sí misma",
   "err.lib.name_exists": "Este nombre ya existe",

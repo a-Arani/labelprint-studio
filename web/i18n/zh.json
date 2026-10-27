@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "不能将文件夹复制到其自身内部",
   "err.lib.dest_not_found": "未找到目标文件夹",
   "err.lib.empty_name": "名称为空",
+  "err.lib.in_use": "它正被其他程序使用（例如文件资源管理器或 OneDrive）。请在那里关闭后重试。",
   "err.lib.file_not_found": "未找到文件",
   "err.lib.move_into_self": "不能将文件夹移动到其自身内部",
   "err.lib.name_exists": "该名称已存在",

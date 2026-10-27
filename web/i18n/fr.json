@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "Un dossier ne peut pas être copié dans lui-même",
   "err.lib.dest_not_found": "Dossier de destination introuvable",
   "err.lib.empty_name": "Le nom est vide",
+  "err.lib.in_use": "Un autre programme l’utilise (par exemple l’Explorateur de fichiers ou OneDrive). Fermez-le puis réessayez.",
   "err.lib.file_not_found": "Fichier introuvable",
   "err.lib.move_into_self": "Un dossier ne peut pas être déplacé dans lui-même",
   "err.lib.name_exists": "Ce nom existe déjà",

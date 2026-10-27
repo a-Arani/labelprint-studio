@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "A folder cannot be copied into itself",
   "err.lib.dest_not_found": "Destination folder not found",
   "err.lib.empty_name": "The name is empty",
+  "err.lib.in_use": "It is in use by another program (for example File Explorer or OneDrive). Close it there and try again.",
   "err.lib.file_not_found": "File not found",
   "err.lib.move_into_self": "A folder cannot be moved into itself",
   "err.lib.name_exists": "This name already exists",

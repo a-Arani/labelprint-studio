@@ -1,6 +1,6 @@
 // Templates and products: make each product label from a master label, product table and bulk creation from Excel
 import { S, snapshot, changed } from './state.js';
-import { h, api, toast, dialog, clone, pickFiles, fileToBase64, fieldNames } from './util.js';
+import { h, api, toast, dialog, clone, pickFiles, fileToBase64, fieldNames, inFolder } from './util.js';
 import { thumbnail } from './render.js';
 import * as logger from './logger.js';
 import { t } from './i18n.js';
@@ -24,7 +24,7 @@ export async function createProduct(template, values, folder) {
   const name = String(values[first] ?? '').trim() || `${template.name} - ${t('product.default')}`;
   doc.name = name;
   const thumb = await thumbnail(doc);
-  const res = await api('/api/library/save', { path: (folder ? folder + '/' : '') + name, label: doc, thumb, overwrite: false });
+  const res = await api('/api/library/save', { path: inFolder(folder, name), label: doc, thumb, overwrite: false });
   logger.info(`Product created: ${res.path} from template "${template.name}"`);
   return res;
 }
@@ -177,7 +177,7 @@ export async function makeTemplateFrom(path) {
   tpl.kind = 'template';
   tpl.name = `${doc.name} (${t('lib.template')})`;
   const thumb = await thumbnail(tpl);
-  const res = await api('/api/library/save', { path: (folderOf(path) ? folderOf(path) + '/' : '') + tpl.name, label: tpl, thumb, overwrite: false });
+  const res = await api('/api/library/save', { path: inFolder(folderOf(path), tpl.name), label: tpl, thumb, overwrite: false });
   logger.info(`Template created: ${res.path} from ${path}`);
   return res.path;
 }

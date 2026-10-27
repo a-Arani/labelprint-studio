@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "Bir klasör kendi içine kopyalanamaz",
   "err.lib.dest_not_found": "Hedef klasör bulunamadı",
   "err.lib.empty_name": "Ad boş",
+  "err.lib.in_use": "Başka bir program tarafından kullanılıyor (örneğin Dosya Gezgini veya OneDrive). Orada kapatıp yeniden deneyin.",
   "err.lib.file_not_found": "Dosya bulunamadı",
   "err.lib.move_into_self": "Bir klasör kendi içine taşınamaz",
   "err.lib.name_exists": "Bu ad zaten var",

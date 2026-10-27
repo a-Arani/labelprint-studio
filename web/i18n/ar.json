@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "لا يمكن نسخ مجلد إلى داخل نفسه",
   "err.lib.dest_not_found": "لم يُعثر على المجلد الوجهة",
   "err.lib.empty_name": "الاسم فارغ",
+  "err.lib.in_use": "هذا العنصر مستخدم في برنامج آخر (مثل File Explorer أو OneDrive). أغلقه هناك ثم حاول مرة أخرى.",
   "err.lib.file_not_found": "لم يُعثر على الملف",
   "err.lib.move_into_self": "لا يمكن نقل مجلد إلى داخل نفسه",
   "err.lib.name_exists": "هذا الاسم موجود بالفعل",

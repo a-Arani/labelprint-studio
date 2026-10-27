@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.2] - 2026-10-27
+
+### Fixed
+- Renaming a folder or label to a name with a character that Windows does not allow in names (`* / \ : ? " < > |`) seemed to do nothing: those characters became spaces, so `50*100` stayed `50 100`. They now become look-alike characters and the name keeps its look: `50*100` becomes `50×100`, `50/100` becomes `50∕100`.
+- A `/` in the name of a new folder or label no longer creates a sub-folder.
+- When another program (such as File Explorer or OneDrive) holds a folder or label, renaming, moving or deleting it waits a moment and then says so clearly, instead of showing an internal error. A folder can no longer end up half-moved.
+- Names made of numbers, such as `50×100`, no longer read backwards in a right-to-left interface.
+- Names that Windows keeps for devices (`CON`, `NUL`, `COM1`…) get a `_` so they can be used.
+
 ## [2.1.1] - 2026-10-27
 
 ### Changed
@@ -62,6 +71,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.2]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.2
 [2.1.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.1
 [2.1.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.0
 [2.0.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.0.0

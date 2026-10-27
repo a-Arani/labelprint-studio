@@ -237,3 +237,21 @@ def test_test_print_shift_and_printer_control(page, app_url):
             break
         time.sleep(0.1)
     assert b"BACKFEED 40\r\n" in received
+
+
+def test_folder_names_keep_slash_and_star(page, app_url):
+    """A "/" typed in a name stays in the name, and characters Windows does not allow become look-alikes."""
+    page.keyboard.press("Escape")
+    page.locator("#lib-root").click()
+    page.locator("#lib-new-folder").click()
+    page.locator(".dlg input").fill("50/100")
+    page.locator(".dlg input").press("Enter")
+    row = page.locator(".lib-folder", has_text="50\u2215100")
+    row.wait_for()
+    row.click(button="right")
+    page.locator(".menu-item", has_text="Rename").click()
+    page.locator(".dlg input").fill("50*100")
+    page.locator(".dlg input").press("Enter")
+    page.locator(".lib-folder", has_text="50\u00d7100").wait_for()
+    names = page.evaluate("async () => (await (await fetch('/api/library/tree')).json()).folders.map((f) => f.name)")
+    assert "50\u00d7100" in names and "50" not in names

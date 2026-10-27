@@ -14,6 +14,9 @@ export const fmtNum = (v) => String(r2(v));
 export const dims = (w, hh) => `\u2066${w}×${hh}\u2069`;
 // Any short left-to-right snippet (numbers, ranges) isolated inside right-to-left text
 export const ltr = (s) => `\u2066${s}\u2069`;
+// Library path of a typed name in a folder: a slash in the name stays part of the name instead of making a sub-folder
+// (the server swaps the other characters Windows does not allow in names)
+export const inFolder = (folder, name) => (folder ? folder + '/' : '') + String(name).replace(/\//g, '\u2215').replace(/\\/g, '\u2216');
 
 // Deep copy; strings (such as image data URLs) are shared, not duplicated
 export function clone(o) {

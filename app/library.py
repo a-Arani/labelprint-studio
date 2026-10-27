@@ -22,7 +22,10 @@ from .logs import LOG
 EXT = ".lbl"
 THUMBS = ".thumbs"
 COPY_SUFFIX = " (copy)"
-_BAD_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_CONTROL = re.compile(r"[\x00-\x1f]")
+# Characters Windows does not allow in names become look-alikes, so a name keeps the look the user typed (50*100 -> 50×100)
+LOOKALIKES = str.maketrans({"*": "\u00d7", "/": "\u2215", "\\": "\u2216", ":": "\u2236", "?": "\uff1f", '"': "\u201d", "<": "\u2039", ">": "\u203a", "|": "\u2223"})
+_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
 
 class LibraryError(AppError):
@@ -59,11 +62,32 @@ class Library:
 
     @staticmethod
     def clean_name(name: str) -> str:
-        name = _BAD_CHARS.sub(" ", (name or "").strip())
+        name = _CONTROL.sub(" ", (name or "").strip()).translate(LOOKALIKES)
         name = re.sub(r"\s+", " ", name).strip(" .")
         if not name:
             raise LibraryError("lib.empty_name", "Name is empty")
-        return name[:120]
+        name = name[:120].rstrip(" .")
+        if name.split(".")[0].upper() in _RESERVED:  # names Windows keeps for devices
+            name += "_"
+        return name
+
+    @staticmethod
+    def _move(src: Path, dest: Path):
+        """Rename on disk; waits a moment while another program (File Explorer, OneDrive, an antivirus) holds the item."""
+        for attempt in range(12):
+            try:
+                os.rename(src, dest)
+                return
+            except PermissionError as e:
+                if attempt == 11:
+                    LOG.warning("Could not move %s -> %s: %s", src, dest, e)
+                    raise LibraryError("lib.in_use", "It is in use by another program. Close it there and try again.") from None
+                time.sleep(0.25)
+            except OSError as e:
+                if getattr(e, "winerror", None) != 17:  # 17: another drive
+                    raise
+                shutil.move(str(src), str(dest))
+                return
 
     def _thumb_path(self, file_abs: Path) -> Path:
         return file_abs.parent / THUMBS / (file_abs.stem + ".png")
@@ -232,10 +256,12 @@ class Library:
         dest = p.parent / stem if p.is_dir() else p.parent / f"{stem}{EXT}"
         if dest.exists() and dest.resolve() != p.resolve():
             raise LibraryError("lib.name_exists", "This name already exists")
+        if dest.name == p.name:
+            return self._rel(p)
         old_thumb = self._thumb_path(p) if p.is_file() else None
-        p.rename(dest)
+        self._move(p, dest)
         if old_thumb and old_thumb.exists():
-            old_thumb.rename(self._thumb_path(dest))
+            self._move(old_thumb, self._thumb_path(dest))
         LOG.info("Renamed: %s -> %s", rel, self._rel(dest))
         return self._rel(dest)
 
@@ -252,14 +278,14 @@ class Library:
             return self._rel(p)
         if p.is_dir():
             dest = self._unique(dest_dir, p.name, "")
-            shutil.move(str(p), str(dest))
+            self._move(p, dest)
         else:
             dest = self._unique(dest_dir, p.stem, EXT)
             thumb = self._thumb_path(p)
-            shutil.move(str(p), str(dest))
+            self._move(p, dest)
             if thumb.exists():
                 self._thumb_path(dest).parent.mkdir(exist_ok=True)
-                shutil.move(str(thumb), str(self._thumb_path(dest)))
+                self._move(thumb, self._thumb_path(dest))
         LOG.info("Moved: %s -> %s", rel, self._rel(dest))
         return self._rel(dest)
 
@@ -305,10 +331,10 @@ class Library:
         dest = self.trash / stamp / self._rel(p)
         dest.parent.mkdir(parents=True, exist_ok=True)
         thumb = self._thumb_path(p) if p.is_file() else None
-        shutil.move(str(p), str(dest))
+        self._move(p, dest)
         if thumb and thumb.exists():
             (dest.parent / THUMBS).mkdir(exist_ok=True)
-            shutil.move(str(thumb), str(dest.parent / THUMBS / thumb.name))
+            self._move(thumb, dest.parent / THUMBS / thumb.name)
         LOG.info("Deleted (moved to trash): %s -> %s", rel, dest)
         return str(dest)
 

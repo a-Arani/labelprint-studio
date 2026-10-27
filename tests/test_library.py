@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -53,6 +54,40 @@ def test_rename_move_copy_delete_keep_uid(lib):
     lib.delete(p)
     assert names(lib.tree()["folders"][1]) == ["دو (copy)"]
     assert any(lib.trash.rglob("دو.lbl"))
+
+
+def test_names_keep_characters_windows_does_not_allow_as_look_alikes(lib):
+    lib.mkdir("50 100")
+    assert lib.rename("50 100", "50*100") == "50\u00d7100"
+    assert lib.rename("50\u00d7100", 'Size: 50/100? "A" <B> |C|') == "Size\u2236 50\u2215100\uff1f \u201dA\u201d \u2039B\u203a \u2223C\u2223"
+    p, _ = lib.save("a/Pot: 12 cm?", {"elements": []})
+    assert p == "a/Pot\u2236 12 cm\uff1f.lbl" and lib.read(p)["name"] == "Pot\u2236 12 cm\uff1f"
+    assert lib.mkdir("con") == "con_"
+    lib.mkdir("abc")
+    assert lib.rename("abc", "ABC") == "ABC" and (lib.root / "ABC").is_dir()
+
+
+def test_rename_waits_while_another_program_holds_the_folder(lib, monkeypatch):
+    lib.mkdir("a")
+    real, calls = os.rename, []
+
+    def busy_twice(src, dest):
+        calls.append(src)
+        if len(calls) < 3:
+            raise PermissionError(13, "Access is denied")
+        real(src, dest)
+
+    monkeypatch.setattr("app.library.time.sleep", lambda s: None)
+    monkeypatch.setattr("app.library.os.rename", busy_twice)
+    assert lib.rename("a", "b") == "b" and len(calls) == 3
+
+    def always_busy(src, dest):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr("app.library.os.rename", always_busy)
+    with pytest.raises(LibraryError) as e:
+        lib.rename("b", "c")
+    assert e.value.code == "lib.in_use" and (lib.root / "b").is_dir()
 
 
 def test_products_of_template(lib):

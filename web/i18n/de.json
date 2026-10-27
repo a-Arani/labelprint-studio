@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "Ein Ordner kann nicht in sich selbst kopiert werden",
   "err.lib.dest_not_found": "Zielordner nicht gefunden",
   "err.lib.empty_name": "Der Name ist leer",
+  "err.lib.in_use": "Das Element wird von einem anderen Programm verwendet (zum Beispiel Datei-Explorer oder OneDrive). Schließen Sie es dort und versuchen Sie es erneut.",
   "err.lib.file_not_found": "Datei nicht gefunden",
   "err.lib.move_into_self": "Ein Ordner kann nicht in sich selbst verschoben werden",
   "err.lib.name_exists": "Dieser Name ist bereits vorhanden",

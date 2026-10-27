@@ -76,6 +76,7 @@
   "err.lib.copy_into_self": "پوشه را نمی‌شود داخل خودش کپی کرد",
   "err.lib.dest_not_found": "پوشهٔ مقصد پیدا نشد",
   "err.lib.empty_name": "نام خالی است",
+  "err.lib.in_use": "این مورد در برنامهٔ دیگری باز است (مثلاً File Explorer یا OneDrive). آن را آن‌جا ببندید و دوباره امتحان کنید.",
   "err.lib.file_not_found": "فایل پیدا نشد",
   "err.lib.move_into_self": "پوشه را نمی‌شود داخل خودش برد",
   "err.lib.name_exists": "این نام از قبل وجود دارد",
