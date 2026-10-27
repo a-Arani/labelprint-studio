@@ -3,6 +3,11 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.4] - 2026-10-27
+
+### Added
+- Printer control: **Reverse feed one label** can go back a little further than one label (*Extra back for one label*, in mm) and *then* come forward until the sensor finds the gap (`HOME`) or to the start of the next label (`FORMFEED`). The paper then stops exactly at a label, however far the last feed really went. Both settings are kept for each printer; the defaults (0 mm, stop there) behave as before.
+
 ## [2.1.3] - 2026-10-27
 
 ### Added
@@ -79,6 +84,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.4]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.4
 [2.1.3]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.3
 [2.1.2]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.2
 [2.1.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.1

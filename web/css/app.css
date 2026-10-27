@@ -402,6 +402,8 @@ textarea.inp { height: auto; padding: 6px 8px; resize: vertical; }
 .pc-group .btn { display: inline-flex; align-items: center; }
 .pc-dist { width: 120px; }
 .pc-dist .field > span:first-child { display: none; }
+.pc-back-extra { width: 190px; }
+.pc-back-then { flex: 1; min-width: 240px; }
 .pc-raw { font-family: Consolas, 'Courier New', monospace; font-size: 12.5px; }
 .btn.danger { color: var(--danger); }
 .print-form > .btn-row.wrap { column-gap: 20px; }

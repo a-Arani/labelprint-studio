@@ -8,6 +8,7 @@ import { mediaList, normMedia, tsplOf, layoutTestCanvas } from './media.js';
 import { toMono, monoToBase64 } from './render.js';
 
 const FINISH = ['tear', 'peel', 'cut', 'cutBatch', 'none'];
+const BACK_THEN = ['none', 'home', 'formfeed'];
 
 export async function openPrinterControl(printerName, mediaId) {
   const list = await loadPrinters();
@@ -26,6 +27,8 @@ export async function openPrinterControl(printerName, mediaId) {
   rollSel.value = media.some((m) => m.id === mediaId) ? mediaId : (S.doc && media.some((m) => m.id === S.doc.page.mediaId) ? S.doc.page.mediaId : media[0].id);
   const distance = h('input', { class: 'inp num', type: 'number', min: 0.1, max: 500, step: 0.5, value: 10, title: t('pc.distance'), 'aria-label': t('pc.distance') });
   const finish = h('select', { class: 'inp' }, ...FINISH.map((k) => h('option', { value: k }, t('pc.finish.' + k))));
+  const backExtra = h('input', { class: 'inp num', type: 'number', min: -50, max: 200, step: 1 });
+  const backThen = h('select', { class: 'inp' }, ...BACK_THEN.map((k) => h('option', { value: k }, t('pc.backThen.' + k))));
   const raw = h('textarea', { class: 'inp pc-raw', rows: 4, dir: 'ltr', spellcheck: false, placeholder: 'SOUND 3,100' });
   const netRow = h('div', { class: 'prow' }, field(t('print.ip'), host), field(t('print.port'), port));
   const printerRow = field(t('print.printer'), printerSel);
@@ -35,6 +38,8 @@ export async function openPrinterControl(printerName, mediaId) {
     host.value = prof.host || '';
     port.value = prof.port || 9100;
     finish.value = FINISH.includes(prof.finish) ? prof.finish : 'tear';
+    backExtra.value = Number(prof.backExtra) || 0;
+    backThen.value = BACK_THEN.includes(prof.backThen) ? prof.backThen : 'none';
     netRow.hidden = method.value !== 'network';
     printerRow.hidden = method.value === 'network';
   };
@@ -47,6 +52,11 @@ export async function openPrinterControl(printerName, mediaId) {
   };
   printerSel.addEventListener('change', () => { prof = profileFor(printerSel.value); fill(); });
   method.addEventListener('change', () => { netRow.hidden = method.value !== 'network'; printerRow.hidden = method.value === 'network'; });
+  // How "Reverse feed one label" works is kept for each printer
+  const back = () => ({ backExtra: parseFloat(backExtra.value) || 0, backThen: backThen.value });
+  const keepBack = () => { Object.assign(prof, back()); saveProfile({ ...prof, printer: printerSel.value || prof.printer }); };
+  backExtra.addEventListener('change', keepBack);
+  backThen.addEventListener('change', keepBack);
 
   const send = async (cmd, extra = {}, okKey = 'pc.sent') => {
     const st = { ...current(), ...extra };
@@ -83,8 +93,10 @@ export async function openPrinterControl(printerName, mediaId) {
       h('div', { class: 'prow' }, field(t('print.method'), method), field(t('print.roll'), rollSel))),
     group(t('pc.paper'),
       [btn(t('pc.feedLabel'), () => send('feed'), 'btn', 'forward'),
-        btn(t('pc.backLabel'), () => send('backlabel'), 'btn', 'backward'),
+        btn(t('pc.backLabel'), () => send('backlabel', back()), 'btn', 'backward'),
         btn(t('pc.home'), () => send('home'))],
+      [h('span', { class: 'pc-back-extra' }, field(t('pc.backExtra'), h('span', { class: 'num-wrap' }, backExtra, h('em', {}, 'mm')))),
+        h('span', { class: 'pc-back-then' }, field(t('pc.backThen'), backThen))],
       [h('span', { class: 'pc-dist' }, field(t('pc.distance'), h('span', { class: 'num-wrap' }, distance, h('em', {}, 'mm')))),
         btn(t('pc.feedMm'), () => send('feedmm', mm()), 'btn', 'forward'),
         btn(t('pc.backfeed'), () => send('backfeed', mm()), 'btn', 'backward')]),

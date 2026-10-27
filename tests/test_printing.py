@@ -71,6 +71,17 @@ def test_printer_control_commands():
     assert printing.tspl_command("backlabel", roll | {"dpi": 300}).endswith(b"BACKFEED 614\r\n")
     assert printing.tspl_command("backlabel", roll | {"media": "bline", "gap": 3}).endswith(b"BLINE 3 mm,0 mm\r\nBACKFEED 424\r\n")
     assert printing.tspl_command("backlabel", roll | {"media": "continuous"}).endswith(b"GAP 0,0\r\nBACKFEED 400\r\n")
+    # Going back further and then forward to the gap (67 mm = 535 dots); a negative extra goes back less
+    assert printing.tspl_command("backlabel", roll | {"backExtra": 15, "backThen": "home"}).endswith(b"BACKFEED 535\r\nHOME\r\n")
+    assert printing.tspl_command("backlabel", roll | {"backExtra": "15", "backThen": "formfeed"}).endswith(b"BACKFEED 535\r\nFORMFEED\r\n")
+    assert printing.tspl_command("backlabel", roll | {"backExtra": -2}).endswith(b"BACKFEED 400\r\n")
+    assert printing.tspl_command("backlabel", roll | {"media": "continuous", "backThen": "home"}).endswith(b"BACKFEED 400\r\n")
+    for bad in ({"backThen": "x"}, {"backExtra": -60}):
+        try:
+            printing.tspl_command("backlabel", roll | bad)
+            raise AssertionError(bad)
+        except printing.PrintError:
+            pass
     assert printing.tspl_command("home", roll).endswith(b"HOME\r\n")
     assert printing.tspl_command("autodetect", roll).endswith(b"AUTODETECT\r\n")
     # Commands that do not depend on the roll are sent alone

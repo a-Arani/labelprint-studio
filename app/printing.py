@@ -106,10 +106,25 @@ def _dots(s: dict) -> int:
     return max(1, min(9999, round(mm * float(s.get("dpi", 203)) / 25.4)))
 
 
-def _label_pitch(s: dict) -> int:
-    """One label (one row) plus the gap or black mark after it, in printer dots."""
-    gap = 0 if s.get("media") == "continuous" else float(s.get("gap", 2))
-    return _dots({**s, "mm": float(s.get("stockH") or 50) + gap})
+# After going back one label: stay, or come forward again until the sensor finds the gap
+BACK_THEN = {"none": [], "home": ["HOME"], "formfeed": ["FORMFEED"]}
+
+
+def _back_label(s: dict) -> list[str]:
+    """Back one label (one row plus the gap or black mark after it) and the extra the user set (backExtra mm).
+    Going back a little more and then forward to the gap makes the paper stop exactly at a label, however
+    far the last feed went. TSPL has no command for this."""
+    try:
+        extra = float(s.get("backExtra") or 0)
+    except (TypeError, ValueError):
+        extra = 0
+    then = s.get("backThen") or "none"
+    if then not in BACK_THEN:
+        raise PrintError("print.unknown_command", "Unknown command")
+    continuous = s.get("media") == "continuous"
+    gap = 0 if continuous else float(s.get("gap", 2))
+    back = f"BACKFEED {_dots({**s, 'mm': float(s.get('stockH') or 50) + gap + extra})}"
+    return [back] + ([] if continuous else BACK_THEN[then])  # continuous paper has no gap to find
 
 
 def _finish_switch(s: dict) -> list[str]:
@@ -135,7 +150,7 @@ COMMANDS = {
     "feed": (True, lambda s: ["FORMFEED"]),                      # feed one label (one row)
     "feedmm": (True, lambda s: [f"FEED {_dots(s)}"]),             # feed a distance
     "backfeed": (True, lambda s: [f"BACKFEED {_dots(s)}"]),       # reverse feed a distance
-    "backlabel": (True, lambda s: [f"BACKFEED {_label_pitch(s)}"]),  # reverse feed one label (TSPL has no command for it)
+    "backlabel": (True, _back_label),                            # reverse feed one label
     "home": (True, lambda s: ["HOME"]),                          # move to the start of the next label
     # Calibrate the gap or black-mark sensor for a new roll
     "calibrate": (True, lambda s: ["BLINEDETECT" if s.get("media") == "bline" else "GAPDETECT"]),

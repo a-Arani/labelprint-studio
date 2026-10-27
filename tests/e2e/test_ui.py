@@ -246,6 +246,19 @@ def test_test_print_shift_and_printer_control(page, app_url):
         time.sleep(0.1)
     label_h, gap, dots = one.findall(received)[-1]
     assert int(dots) == round((float(label_h) + float(gap)) * 203 / 25.4) != 40
+    # Go back 10 mm more, then forward until the sensor finds the gap; the choice is kept for the printer
+    pc.locator(".pc-back-extra input").fill("10")
+    pc.locator(".pc-back-extra input").dispatch_event("change")
+    pc.locator(".pc-back-then select").select_option("home")
+    pc.get_by_role("button", name="Reverse feed one label").click()
+    want = f"BACKFEED {round((float(label_h) + float(gap) + 10) * 203 / 25.4)}\r\nHOME\r\n".encode()
+    for _ in range(50):
+        if want in received:
+            break
+        time.sleep(0.1)
+    assert want in received
+    kept = page.evaluate("async () => { const st = await import('/js/state.js'); return Object.values(st.S.settings.printers).map((p) => [p.backExtra, p.backThen]); }")
+    assert [10, "home"] in kept
 
 
 def test_folder_names_keep_slash_and_star(page, app_url):
