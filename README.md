@@ -124,7 +124,7 @@ The preview shows the shift live and warns you if any part would fall off the la
 
 ### Full printer control
 
-Everything you would do on the printer itself, from your desk: **feed** one label or any distance, **reverse feed**, go to the start of the label, **calibrate** the gap or black-mark sensor, print the **self-test page** or an **alignment test with millimetre rulers**, **beep** to find the printer, and switch between **tear-off, peel-off and cutter** modes. Power users can send any **TSPL command**.
+Everything you would do on the printer itself, from your desk: **feed** one label or any distance, **reverse feed** one label or any distance, go to the start of the label, **calibrate** the gap or black-mark sensor, print the **self-test page** or an **alignment test with millimetre rulers**, **beep** to find the printer, and switch between **tear-off, peel-off and cutter** modes. Power users can send any **TSPL command**.
 
 </td>
 <td><img src="docs/images/printer-control.png" alt="Printer control: feed, reverse feed, calibrate sensor, self-test, alignment test, tear-off, peel-off and cutter modes"></td>
@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.2-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.1.3-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -251,7 +251,7 @@ Double-click the picture to open the image editor. For logos and text choose **B
 <details>
 <summary><b>Can I feed or reverse-feed the paper from the app?</b></summary>
 
-Yes. Open **⋯ → Printer control…** to feed one label or any distance, reverse feed, calibrate the sensor, print the self-test page or an alignment test, and switch tear-off, peel-off or cutter mode. This works with TSC and other TSPL printers (Direct or Network method).
+Yes. Open **⋯ → Printer control…** to feed one label or any distance, reverse feed one label or any distance, calibrate the sensor, print the self-test page or an alignment test, and switch tear-off, peel-off or cutter mode. This works with TSC and other TSPL printers (Direct or Network method).
 </details>
 
 <details>

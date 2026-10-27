@@ -66,6 +66,11 @@ def test_printer_control_commands():
     assert printing.tspl_command("feedmm", {**roll, "mm": 10}).endswith(b"FEED 80\r\n")
     assert printing.tspl_command("backfeed", {**roll, "mm": 10, "dpi": 300}).endswith(b"BACKFEED 118\r\n")
     assert printing.tspl_command("backfeed", roll | {"mm": 5}).startswith(b"SIZE 100 mm,50 mm\r\nGAP 2 mm,0 mm\r\n")
+    # Back one label: the label plus its gap or black mark (52 mm = 416 dots at 203 dpi); a continuous roll has none
+    assert printing.tspl_command("backlabel", roll).endswith(b"BACKFEED 416\r\n")
+    assert printing.tspl_command("backlabel", roll | {"dpi": 300}).endswith(b"BACKFEED 614\r\n")
+    assert printing.tspl_command("backlabel", roll | {"media": "bline", "gap": 3}).endswith(b"BLINE 3 mm,0 mm\r\nBACKFEED 424\r\n")
+    assert printing.tspl_command("backlabel", roll | {"media": "continuous"}).endswith(b"GAP 0,0\r\nBACKFEED 400\r\n")
     assert printing.tspl_command("home", roll).endswith(b"HOME\r\n")
     assert printing.tspl_command("autodetect", roll).endswith(b"AUTODETECT\r\n")
     # Commands that do not depend on the roll are sent alone

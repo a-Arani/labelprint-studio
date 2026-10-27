@@ -106,6 +106,12 @@ def _dots(s: dict) -> int:
     return max(1, min(9999, round(mm * float(s.get("dpi", 203)) / 25.4)))
 
 
+def _label_pitch(s: dict) -> int:
+    """One label (one row) plus the gap or black mark after it, in printer dots."""
+    gap = 0 if s.get("media") == "continuous" else float(s.get("gap", 2))
+    return _dots({**s, "mm": float(s.get("stockH") or 50) + gap})
+
+
 def _finish_switch(s: dict) -> list[str]:
     mode = s.get("finish") or "tear"
     if mode not in FINISH_SWITCH:
@@ -129,6 +135,7 @@ COMMANDS = {
     "feed": (True, lambda s: ["FORMFEED"]),                      # feed one label (one row)
     "feedmm": (True, lambda s: [f"FEED {_dots(s)}"]),             # feed a distance
     "backfeed": (True, lambda s: [f"BACKFEED {_dots(s)}"]),       # reverse feed a distance
+    "backlabel": (True, lambda s: [f"BACKFEED {_label_pitch(s)}"]),  # reverse feed one label (TSPL has no command for it)
     "home": (True, lambda s: ["HOME"]),                          # move to the start of the next label
     # Calibrate the gap or black-mark sensor for a new roll
     "calibrate": (True, lambda s: ["BLINEDETECT" if s.get("media") == "bline" else "GAPDETECT"]),

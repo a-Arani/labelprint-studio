@@ -329,6 +329,7 @@
   "pc.factory": "Restaurar configurações de fábrica",
   "pc.factoryText": "Redefinir a impressora para as configurações de fábrica? A calibração do sensor, a densidade e outras configurações guardadas na impressora serão apagadas.",
   "pc.feedLabel": "Avançar uma etiqueta",
+  "pc.backLabel": "Recuar uma etiqueta",
   "pc.feedMm": "Avançar",
   "pc.finish.cut": "Cortar cada etiqueta (cortador)",
   "pc.finish.cutBatch": "Cortar no fim do trabalho (cortador)",

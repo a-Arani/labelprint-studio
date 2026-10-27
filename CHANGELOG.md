@@ -3,6 +3,14 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.1.3] - 2026-10-27
+
+### Added
+- Printer control: **Reverse feed one label** pulls the paper back by exactly one label and its gap (or black mark), taken from the selected roll. TSPL has no command for this, so it is sent as `BACKFEED` with that length.
+
+### Changed
+- Printer control: one-label moves and distance moves are on separate rows.
+
 ## [2.1.2] - 2026-10-27
 
 ### Fixed
@@ -71,6 +79,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.1.3]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.3
 [2.1.2]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.2
 [2.1.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.1
 [2.1.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.0

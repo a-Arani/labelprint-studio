@@ -329,6 +329,7 @@
   "pc.factory": "Fabrika ayarlarını geri yükle",
   "pc.factoryText": "Yazıcı fabrika ayarlarına sıfırlansın mı? Sensör kalibrasyonu, koyuluk ve yazıcıda kayıtlı diğer ayarlar silinir.",
   "pc.feedLabel": "Bir etiket ilerlet",
+  "pc.backLabel": "Bir etiket geri sar",
   "pc.feedMm": "İlerlet",
   "pc.finish.cut": "Her etiketi kes (kesici)",
   "pc.finish.cutBatch": "İş sonunda kes (kesici)",

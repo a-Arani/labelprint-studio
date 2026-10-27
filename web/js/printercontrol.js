@@ -73,18 +73,21 @@ export async function openPrinterControl(printerName, mediaId) {
     } catch (e) { toast(e.message, 'error', 7000); }
   };
 
-  const group = (title, ...kids) => h('section', { class: 'pc-group' }, h('h4', {}, title), h('div', { class: 'btn-row wrap' }, ...kids));
+  // A titled group of buttons; given arrays, each one is a row of its own
+  const group = (title, ...kids) => h('section', { class: 'pc-group' }, h('h4', {}, title),
+    ...(Array.isArray(kids[0]) ? kids : [kids]).map((row) => h('div', { class: 'btn-row wrap' }, ...row)));
   const body = h('div', { class: 'pc' },
     h('div', { class: 'pc-top' },
       printerRow,
       netRow,
       h('div', { class: 'prow' }, field(t('print.method'), method), field(t('print.roll'), rollSel))),
     group(t('pc.paper'),
-      btn(t('pc.feedLabel'), () => send('feed')),
-      btn(t('pc.home'), () => send('home')),
-      h('span', { class: 'pc-dist' }, field(t('pc.distance'), h('span', { class: 'num-wrap' }, distance, h('em', {}, 'mm')))),
-      btn(t('pc.feedMm'), () => send('feedmm', mm()), 'btn', 'forward'),
-      btn(t('pc.backfeed'), () => send('backfeed', mm()), 'btn', 'backward')),
+      [btn(t('pc.feedLabel'), () => send('feed'), 'btn', 'forward'),
+        btn(t('pc.backLabel'), () => send('backlabel'), 'btn', 'backward'),
+        btn(t('pc.home'), () => send('home'))],
+      [h('span', { class: 'pc-dist' }, field(t('pc.distance'), h('span', { class: 'num-wrap' }, distance, h('em', {}, 'mm')))),
+        btn(t('pc.feedMm'), () => send('feedmm', mm()), 'btn', 'forward'),
+        btn(t('pc.backfeed'), () => send('backfeed', mm()), 'btn', 'backward')]),
     group(t('pc.sensor'),
       btn(t('media.calibrate'), () => send('calibrate', {}, 'media.calibrateSent')),
       btn(t('pc.autodetect'), () => send('autodetect', {}, 'media.calibrateSent'))),

@@ -2,7 +2,7 @@
 
 APP_NAME = "LabelPrint Studio"
 APP_ID = "LabelPrintStudio"             # used for file names and the per-user data folder
-VERSION = "2.1.2"
+VERSION = "2.1.3"
 AUTHOR = "Amirhossein Arani"
 REPO_URL = "https://github.com/a-Arani/labelprint-studio"
 LICENSE = "MIT"

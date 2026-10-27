@@ -329,6 +329,7 @@
   "pc.factory": "恢复出厂设置",
   "pc.factoryText": "将打印机恢复为出厂设置？打印机中保存的传感器校准、浓度和其他设置将被清除。",
   "pc.feedLabel": "走纸一张标签",
+  "pc.backLabel": "退纸一张标签",
   "pc.feedMm": "走纸",
   "pc.finish.cut": "每张切纸（切刀）",
   "pc.finish.cutBatch": "作业结束时切纸（切刀）",

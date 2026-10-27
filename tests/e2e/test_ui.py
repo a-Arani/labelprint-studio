@@ -231,12 +231,21 @@ def test_test_print_shift_and_printer_control(page, app_url):
     pc.locator("input[placeholder='192.168.1.50']").fill("127.0.0.1")
     pc.locator("label.field", has=page.locator("span", has_text="Port")).locator("input").fill(str(port))
     pc.locator(".pc-dist input").fill("5")
-    pc.locator("button", has_text="Reverse feed").click()
+    pc.get_by_role("button", name="Reverse feed", exact=True).click()
     for _ in range(50):
         if b"BACKFEED 40" in received:
             break
         time.sleep(0.1)
     assert b"BACKFEED 40\r\n" in received
+    # Back one label: the roll's label height plus its gap
+    pc.get_by_role("button", name="Reverse feed one label").click()
+    one = re.compile(rb"SIZE [\d.]+ mm,([\d.]+) mm\r\nGAP ([\d.]+) mm,[\d.]+ mm\r\nBACKFEED (\d+)\r\n")
+    for _ in range(50):
+        if len(one.findall(received)) > 1:
+            break
+        time.sleep(0.1)
+    label_h, gap, dots = one.findall(received)[-1]
+    assert int(dots) == round((float(label_h) + float(gap)) * 203 / 25.4) != 40
 
 
 def test_folder_names_keep_slash_and_star(page, app_url):

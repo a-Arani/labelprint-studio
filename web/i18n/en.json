@@ -329,6 +329,7 @@
   "pc.factory": "Restore factory settings",
   "pc.factoryText": "Reset the printer to its factory settings? Sensor calibration, darkness and other settings stored in the printer are erased.",
   "pc.feedLabel": "Feed one label",
+  "pc.backLabel": "Reverse feed one label",
   "pc.feedMm": "Feed",
   "pc.finish.cut": "Cut every label (cutter)",
   "pc.finish.cutBatch": "Cut at the end of the job (cutter)",

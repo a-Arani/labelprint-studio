@@ -329,6 +329,7 @@
   "pc.factory": "Werkseinstellungen wiederherstellen",
   "pc.factoryText": "Drucker auf Werkseinstellungen zurücksetzen? Sensorkalibrierung, Druckdichte und andere im Drucker gespeicherte Einstellungen werden gelöscht.",
   "pc.feedLabel": "Ein Etikett vorschieben",
+  "pc.backLabel": "Ein Etikett zurückziehen",
   "pc.feedMm": "Vorschieben",
   "pc.finish.cut": "Jedes Etikett schneiden (Schneider)",
   "pc.finish.cutBatch": "Am Auftragsende schneiden (Schneider)",

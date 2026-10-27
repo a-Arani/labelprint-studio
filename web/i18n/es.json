@@ -329,6 +329,7 @@
   "pc.factory": "Restaurar ajustes de fábrica",
   "pc.factoryText": "¿Restablecer la impresora a los ajustes de fábrica? Se borran la calibración del sensor, la oscuridad y otros ajustes guardados en la impresora.",
   "pc.feedLabel": "Avanzar una etiqueta",
+  "pc.backLabel": "Retroceder una etiqueta",
   "pc.feedMm": "Avanzar",
   "pc.finish.cut": "Cortar cada etiqueta (cortador)",
   "pc.finish.cutBatch": "Cortar al final del trabajo (cortador)",
