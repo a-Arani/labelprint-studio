@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content="Amirhossein Arani">
+  <title>LabelPrint Studio</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>
+    // Set direction before first paint and skip the splash on reloads in the same session
+    try {
+      var l = localStorage.getItem('ls.lang');
+      if (l) { document.documentElement.lang = l; if (l === 'fa' || l === 'ar') document.documentElement.dir = 'rtl'; }
+      if (sessionStorage.getItem('ls.splash')) document.documentElement.classList.add('no-splash');
+    } catch (e) { /* storage unavailable */ }
+  </script>
+  <style>
+    #splash { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; background: #f7f9fc; font-family: "Segoe UI", Tahoma, "Microsoft YaHei", sans-serif; color: #1d2733; transition: opacity .3s ease; }
+    #splash.gone { opacity: 0; pointer-events: none; }
+    .no-splash #splash { display: none; }
+    #splash img { width: 96px; height: 96px; }
+    #splash .sp-name { font-size: 24px; font-weight: 600; letter-spacing: .2px; margin-top: 6px; }
+    #splash .sp-tag { font-size: 13px; color: #5d6876; margin-top: -4px; }
+    #splash .sp-ver { font-size: 12px; color: #8a94a3; min-height: 16px; }
+    #splash .sp-by { position: absolute; bottom: 28px; font-size: 12px; color: #9aa3af; letter-spacing: .3px; }
+    #splash .sp-bar { width: 120px; height: 3px; border-radius: 2px; background: #e3e8ef; overflow: hidden; margin-top: 14px; }
+    #splash .sp-bar::after { content: ""; display: block; width: 40%; height: 100%; background: #1f5fbf; border-radius: 2px; animation: sp-move 1.1s ease-in-out infinite; }
+    @keyframes sp-move { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+  </style>
+  <link rel="stylesheet" href="css/app.css">
+  <script src="vendor/JsBarcode.all.min.js"></script>
+  <script src="vendor/qrcode.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</head>
+<body class="no-doc">
+  <div id="splash" dir="ltr" role="status" aria-label="LabelPrint Studio">
+    <img src="logo.svg" alt="">
+    <div class="sp-name">LabelPrint Studio</div>
+    <div class="sp-tag">Design &amp; print labels on thermal printers</div>
+    <div class="sp-ver" id="splash-version"></div>
+    <div class="sp-bar"></div>
+    <div class="sp-by">Designed &amp; developed by Amirhossein Arani</div>
+  </div>
+  <header class="topbar">
+    <button class="brand" id="brand"><img class="brand-logo" src="logo.svg" alt=""><span class="brand-name" data-i18n="app.name">LabelPrint Studio</span></button>
+    <div class="tgroup">
+      <button class="tbtn-l" id="btn-new"></button>
+      <button class="tbtn-l" id="btn-import"></button>
+      <button class="tbtn-l" id="btn-save"></button>
+      <button class="icon-btn" id="btn-saveas"></button>
+    </div>
+    <div class="tgroup">
+      <button class="icon-btn" id="btn-undo"></button>
+      <button class="icon-btn" id="btn-redo"></button>
+    </div>
+    <div class="doc-name"><span id="doc-title"></span><span id="doc-folder" class="muted"></span></div>
+    <div class="tgroup">
+      <button class="icon-btn" id="btn-grid"></button>
+      <button class="tbtn-l" id="btn-preview"></button>
+      <button class="icon-btn" id="btn-zoomout"></button>
+      <button class="icon-btn" id="btn-fit"></button>
+      <button class="icon-btn" id="btn-zoomin"></button>
+    </div>
+    <div class="tgroup">
+      <button class="tbtn-l" id="btn-history"></button>
+      <button class="tbtn-l lang-btn" id="btn-lang"></button>
+      <button class="icon-btn" id="btn-more"></button>
+    </div>
+    <button class="tbtn-l primary" id="btn-print"></button>
+  </header>
+  <div class="formatbar" id="formatbar"></div>
+  <main class="layout">
+    <aside class="library" id="library">
+      <div class="lib-head">
+        <button id="lib-root" class="lib-title" data-i18n="lib.title">Library</button>
+        <button class="icon-btn" id="lib-new" data-i18n-title="lib.newInFolder"><span class="ico"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 2h7l4 4v12H5z"/><path d="M12 2v4h4M10.5 9v6M7.5 12h6"/></svg></span></button>
+        <button class="icon-btn" id="lib-new-folder" data-i18n-title="lib.newFolder"><span class="ico"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.5a1 1 0 011-1H8l1.5 2h7a1 1 0 011 1V15a1 1 0 01-1 1h-13a1 1 0 01-1-1z"/><path d="M10 9v5M7.5 11.5h5"/></svg></span></button>
+        <button class="icon-btn" id="lib-import" data-i18n-title="lib.importFiles"><span class="ico"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2h7l4 4v12H5z"/><path d="M10.5 8v7M8 12.5l2.5 2.5 2.5-2.5"/></svg></span></button>
+        <button class="icon-btn" id="lib-import-dir" data-i18n-title="lib.importFolder"><span class="ico"><svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 5.5a1 1 0 011-1H8l1.5 2h7a1 1 0 011 1V15a1 1 0 01-1 1h-13a1 1 0 01-1-1z"/><path d="M10 8.5v5M7.8 11.5l2.2 2.2 2.2-2.2"/></svg></span></button>
+      </div>
+      <input class="inp lib-search" id="lib-search" data-i18n-placeholder="lib.search">
+      <div class="lib-tree" id="lib-tree"></div>
+    </aside>
+    <nav class="tools" id="tools"></nav>
+    <section class="workspace" id="workspace" data-tool="select">
+      <div class="welcome" id="welcome">
+        <div class="welcome-card">
+          <img class="welcome-logo" src="logo.svg" alt="">
+          <div class="welcome-title" data-i18n="app.name">LabelPrint Studio</div>
+          <div class="welcome-sub muted" data-i18n="app.tagline">Label designer for thermal label printers</div>
+          <button class="btn btn-primary" id="welcome-new" data-i18n="welcome.new">New label</button>
+          <button class="btn" id="welcome-import" data-i18n="welcome.import">Import a Word or PowerPoint file</button>
+          <button class="btn" id="welcome-import-dir" data-i18n="welcome.importFolder">Import a whole folder</button>
+        </div>
+      </div>
+    </section>
+    <aside class="props" id="props"></aside>
+  </main>
+  <footer class="status">
+    <span id="status-size"></span>
+    <span id="status-pos"></span>
+    <span id="status-zoom"></span>
+    <span id="status-save"></span>
+    <span id="status-version"></span>
+  </footer>
+</body>
+</html>

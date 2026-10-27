@@ -1,0 +1,37 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown at the bottom right of the window and in About.
+      placeholder: "2.0.0"
+    validations:
+      required: true
+  - type: input
+    id: printer
+    attributes:
+      label: Printer and print method
+      placeholder: "TSC TE200, Direct (TSPL)"
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version and interface language
+      placeholder: "Windows 11, English"
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        In the app open ⋯ → App logs → Create diagnostics file, and attach the zip from your Desktop.
+        It contains the logs, settings, print history and the list of label names, but not the label designs.
+        Check it for anything private before attaching.

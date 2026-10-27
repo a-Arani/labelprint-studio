@@ -1,0 +1,22 @@
+# Your labels, settings, print history and backups (never commit them)
+data/
+
+# Build output
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
+~$*

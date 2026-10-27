@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Translation fixes
+    url: https://github.com/a-Arani/labelprint-studio/blob/main/CONTRIBUTING.md#translations
+    about: Translations live in web/i18n; a pull request with the corrected text is the fastest way.

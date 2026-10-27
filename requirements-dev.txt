@@ -1,0 +1,7 @@
+# The app itself needs only the Python standard library.
+# These are for running the tests.
+pytest>=8
+
+# Optional: the end-to-end browser test in tests/e2e (also run `python -m playwright install chromium`
+# if Microsoft Edge is not installed)
+# playwright>=1.40

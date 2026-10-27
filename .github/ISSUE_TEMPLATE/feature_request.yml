@@ -1,0 +1,15 @@
+name: Feature request
+description: Suggest an idea or a printer to support
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to do?
+      description: Describe the task and, if it helps, the labels or printer involved.
+    validations:
+      required: true
+  - type: textarea
+    id: now
+    attributes:
+      label: How do you do it today?
