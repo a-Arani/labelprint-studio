@@ -609,10 +609,14 @@
   "media.gapOffset": "جابه‌جایی فاصله",
   "media.grid": "{cols} در عرض × {rows} در ارتفاع",
   "media.multi": "{n} ستونه {size}",
-  "media.onePrint": "یک چاپ",
   "media.feedDir": "جهت حرکت کاغذ",
   "media.rollW": "رول {n} میلی‌متر",
   "print.setupGrid": "طرح {design} ← {roll}: {cols} × {rows} لیبل در هر چاپ، لیبل {label}، چرخش {rot}",
   "print.totalPrints": "لیبل: {n} · چاپ: {rows}",
-  "print.totalPrintsEmpty": "لیبل: {n} · چاپ: {rows} · جای خالی در چاپ آخر: {empty}"
+  "print.totalPrintsEmpty": "لیبل: {n} · چاپ: {rows} · جای خالی در چاپ آخر: {empty}",
+  "media.saveUse": "ذخیره و استفاده برای این لیبل",
+  "media.thisLabel": "این لیبل",
+  "media.onePrintOf": "یک چاپ: {grid}",
+  "page.rollMismatch": "لیبل‌های این رول {size} هستند",
+  "page.useRollSize": "اندازه را {size} کن"
 }

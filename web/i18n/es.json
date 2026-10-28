@@ -609,10 +609,14 @@
   "media.gapOffset": "Desplazamiento del espacio",
   "media.grid": "{cols} a lo ancho × {rows} a lo largo",
   "media.multi": "{n} columnas {size}",
-  "media.onePrint": "Una impresión",
   "media.feedDir": "Dirección del papel",
   "media.rollW": "rollo {n} mm",
   "print.setupGrid": "Diseño {design} → {roll}: {cols} × {rows} etiquetas en cada impresión, etiqueta {label}, giro {rot}",
   "print.totalPrints": "Etiquetas: {n} · impresiones: {rows}",
-  "print.totalPrintsEmpty": "Etiquetas: {n} · impresiones: {rows} · vacías en la última impresión: {empty}"
+  "print.totalPrintsEmpty": "Etiquetas: {n} · impresiones: {rows} · vacías en la última impresión: {empty}",
+  "media.saveUse": "Guardar y usar para esta etiqueta",
+  "media.thisLabel": "Esta etiqueta",
+  "media.onePrintOf": "Una impresión: {grid}",
+  "page.rollMismatch": "Las etiquetas de este rollo son de {size}",
+  "page.useRollSize": "Ponerla en {size}"
 }

@@ -609,10 +609,14 @@
   "media.gapOffset": "Смещение зазора",
   "media.grid": "{cols} в ширину × {rows} в длину",
   "media.multi": "В {n} ряда {size}",
-  "media.onePrint": "Одна печать",
   "media.feedDir": "Направление бумаги",
   "media.rollW": "рулон {n} мм",
   "print.setupGrid": "Макет {design} → {roll}: {cols} × {rows} этикеток за печать, этикетка {label}, поворот {rot}",
   "print.totalPrints": "Этикеток: {n} · печатей: {rows}",
-  "print.totalPrintsEmpty": "Этикеток: {n} · печатей: {rows} · пустых в последней печати: {empty}"
+  "print.totalPrintsEmpty": "Этикеток: {n} · печатей: {rows} · пустых в последней печати: {empty}",
+  "media.saveUse": "Сохранить и использовать для этой этикетки",
+  "media.thisLabel": "Эта этикетка",
+  "media.onePrintOf": "Одна печать: {grid}",
+  "page.rollMismatch": "Этикетки этого рулона — {size}",
+  "page.useRollSize": "Сделать {size}"
 }

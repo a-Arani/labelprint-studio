@@ -609,10 +609,14 @@
   "media.gapOffset": "Gap offset",
   "media.grid": "{cols} across × {rows} down",
   "media.multi": "{n} across {size}",
-  "media.onePrint": "One print",
   "media.feedDir": "Paper direction",
   "media.rollW": "roll {n} mm",
   "print.setupGrid": "Design {design} → {roll}: {cols} × {rows} labels in each print, label {label}, rotation {rot}",
   "print.totalPrints": "Labels: {n} · prints: {rows}",
-  "print.totalPrintsEmpty": "Labels: {n} · prints: {rows} · empty in the last print: {empty}"
+  "print.totalPrintsEmpty": "Labels: {n} · prints: {rows} · empty in the last print: {empty}",
+  "media.saveUse": "Save and use for this label",
+  "media.thisLabel": "This label",
+  "media.onePrintOf": "One print: {grid}",
+  "page.rollMismatch": "The labels on this roll are {size}",
+  "page.useRollSize": "Make it {size}"
 }

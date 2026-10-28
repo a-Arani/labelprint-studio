@@ -1,5 +1,5 @@
 // Roll types: labels as they pass through the printer (liner width, columns, label size, gaps)
-import { S } from './state.js';
+import { S, emit } from './state.js';
 import { h, api, toast, dialog, confirmBox, uid, r2, clamp, clone, SVGNS, dims } from './util.js';
 import { toMono, monoToBase64 } from './render.js';
 import { loadPrinters, profileFor, pickDefaultPrinter } from './printers.js';
@@ -72,11 +72,24 @@ export function problems(m, maxWidth = 108, skipFit = false) {
 
 /** A roll whose label size matches the design (directly or turned) */
 export function matchMedia(page) {
-  const eq = (a, b) => Math.abs(a - b) <= 0.6;
   const list = mediaList();
-  const fits = (m) => (eq(m.labelW, page.w) && eq(m.labelH, page.h)) || (eq(m.labelW, page.h) && eq(m.labelH, page.w));
   const own = list.find((m) => m.id === page.mediaId);
-  return own || list.find(fits) || null;
+  return own || list.find((m) => fitsRoll(page, m)) || null;
+}
+
+/** The design is the size of one label of this roll (upright or turned) */
+export function fitsRoll(page, m) {
+  const eq = (a, b) => Math.abs(a - b) <= 0.6;
+  return (eq(m.labelW, page.w) && eq(m.labelH, page.h)) || (eq(m.labelW, page.h) && eq(m.labelH, page.w));
+}
+
+/** The roll chosen last for a label (a new label starts with it) */
+export function lastRoll() {
+  try { return localStorage.getItem('ls.lastRoll') || ''; } catch (e) { return ''; }
+}
+
+export function rememberRoll(id) {
+  try { localStorage.setItem('ls.lastRoll', id || ''); } catch (e) { /* storage unavailable */ }
 }
 
 /** TSPL settings of a roll: SIZE = liner width × the height of one print (one row of labels, or more) */
@@ -107,45 +120,51 @@ function dim(g, key, x1, y1, x2, y2, label) {
 /** The roll as it comes out of the printer: a few prints, labels numbered in print order, the sizes readable */
 export function mediaDiagram(m) {
   const L = layout(m);
-  const prints = m.rows > 1 ? 2 : 3;
   const gapV = m.gapType === 'continuous' ? 0 : m.rowGap;
-  const lenMM = 4 + prints * L.pageH + (prints - 1) * gapV + 4;
+  const stub = Math.min(m.labelH * 0.3, 7);        // the top of the next label, so the gap down the roll shows
+  const lead = 6, tail = gapV + stub + 3;          // backing paper above and below the print (mm)
+  const lenMM = lead + L.pageH + tail;
   const minX = Math.min(0, L.xs[0]), maxX = Math.max(m.linerW, L.xs[m.cols - 1] + m.labelW);
   const spanW = Math.max(1, maxX - minX);
-  const left = 22, right = 64, top = 58, bottom = 10;
-  const s = Math.max(0.4, Math.min(430 / spanW, 330 / lenMM));
+  const left = 22, right = 64, top = 40, bottom = 10;
+  const s = Math.max(0.4, Math.min(430 / spanW, 300 / lenMM));
   const W = Math.round(left + spanW * s + right), H = Math.round(top + lenMM * s + bottom);
   const X = (mm) => left + (mm - minX) * s;
-  const Y = (mm) => top + (4 + mm) * s;
+  const Y = (mm) => top + (lead + mm) * s;
   const svg = sv('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'media-svg', direction: 'ltr' });
   const defs = sv('defs', {});
   const mk = sv('marker', { id: 'arr', viewBox: '0 0 6 6', refX: 3, refY: 3, markerWidth: 5, markerHeight: 5, orient: 'auto-start-reverse' });
   mk.append(sv('path', { d: 'M0,0 L6,3 L0,6 z', class: 'arr' }));
   defs.append(mk);
   svg.append(defs);
-  svg.append(sv('rect', { x: X(0), y: top, width: m.linerW * s, height: lenMM * s, class: 'liner', 'data-dim': 'linerW' }));
-  // The labels, numbered in the order they are printed
+  // The roll goes on above and below: torn edges
+  const x0 = X(0), x1 = X(m.linerW), yt = Y(-lead), yb = Y(L.pageH + tail);
+  const teeth = Math.max(4, Math.round((x1 - x0) / 14));
+  const zig = (y, from, to, dir) => Array.from({ length: teeth + 1 }, (_, i) => {
+    const x = from + ((to - from) * i) / teeth;
+    return `L${x.toFixed(1)},${(y + (i % 2 ? dir * 4 : 0)).toFixed(1)}`;
+  }).join(' ');
+  svg.append(sv('path', { d: `M${x0},${yt} ${zig(yt, x0, x1, 1)} L${x1},${yb} ${zig(yb, x1, x0, -1)} Z`, class: 'liner', 'data-dim': 'linerW' }));
+  // The labels of one print, numbered in the order they are printed
   let n = 0;
-  for (let p = 0; p < prints; p++) {
-    const y0 = p * (L.pageH + gapV);
-    for (const yr of L.ys) {
-      L.xs.forEach((x) => {
-        const out = x < -0.05 || x + m.labelW > m.linerW + 0.05;
-        svg.append(sv('rect', {
-          x: X(x), y: Y(y0 + yr), width: m.labelW * s, height: m.labelH * s, rx: Math.min(m.radius * s, 8),
-          class: 'lbl' + (out ? ' out' : ''), 'data-dim': n === 0 ? 'labelW labelH radius' : null,
-        }));
-        svg.append(sv('text', {
-          x: X(x + m.labelW / 2), y: Y(y0 + yr + m.labelH / 2), class: 'num', 'font-size': Math.max(9, Math.min(22, m.labelH * s * 0.45)),
-        }, String(++n)));
-      });
-    }
+  for (const yr of L.ys) {
+    L.xs.forEach((x) => {
+      const out = x < -0.05 || x + m.labelW > m.linerW + 0.05;
+      svg.append(sv('rect', {
+        x: X(x), y: Y(yr), width: m.labelW * s, height: m.labelH * s, rx: Math.min(m.radius * s, 8),
+        class: 'lbl' + (out ? ' out' : ''), 'data-dim': n === 0 ? 'perPrint labelW labelH radius' : 'perPrint',
+      }));
+      svg.append(sv('text', {
+        x: X(x + m.labelW / 2), y: Y(yr + m.labelH / 2), class: 'num', 'font-size': Math.max(9, Math.min(22, m.labelH * s * 0.45)),
+      }, String(++n)));
+    });
   }
-  // One print: what the printer prints at once
-  const fr = sv('g', { class: 'print-frame', 'data-dim': 'perPrint' });
-  fr.append(sv('rect', { x: X(minX) - 5, y: Y(0) - 5, width: spanW * s + 10, height: L.pageH * s + 10, rx: 6 }));
-  fr.append(sv('text', { x: X(minX) - 5, y: Y(0) - 10 }, t('media.onePrint', { n: perPrint(m) })));
-  svg.append(fr);
+  // Only the top of the next labels: the roll goes on, the next print starts after the gap
+  const yn = Y(L.pageH + gapV), yn2 = Y(L.pageH + gapV + stub);
+  L.xs.forEach((x) => {
+    const a = X(x), b = X(x + m.labelW);
+    svg.append(sv('path', { d: `M${a},${yn2} L${a},${yn} L${b},${yn} L${b},${yn2}`, class: 'lbl-next' }));
+  });
   // Sizes
   const g = sv('g', {});
   dim(g, 'linerW', X(0), 22, X(m.linerW), 22, `${fmt(m.linerW)} mm`);
@@ -153,7 +172,7 @@ export function mediaDiagram(m) {
   dim(g, 'labelW', lx, ly + 18, lx + m.labelW * s, ly + 18, fmt(m.labelW));
   const xr = X(maxX) + 10;
   dim(g, 'labelH', xr, Y(0), xr, Y(m.labelH), fmt(m.labelH));
-  if (gapV > 0.05) dim(g, 'rowGap', xr, Y(m.labelH), xr, Y(m.labelH + m.rowGap), fmt(m.rowGap));
+  if (gapV > 0.05) dim(g, 'rowGap', xr, Y(L.pageH), xr, Y(L.pageH + gapV), fmt(m.rowGap));
   const yc = Y(m.labelH * 0.72);
   if (m.cols > 1 && m.colGap > 0.05) dim(g, 'colGap', X(L.xs[0] + m.labelW), yc, X(L.xs[1]), yc, fmt(m.colGap));
   if (m.marginL > 0.05) dim(g, 'margin', X(0), yc, X(L.xs[0]), yc, fmt(m.marginL));
@@ -254,9 +273,11 @@ const miniGrid = (m) => h('span', { class: 'mini-grid', style: { gridTemplateCol
 /** Labels in the middle of the roll: equal space left and right */
 const centeredOnRoll = (m) => Math.abs(m.marginL - (m.linerW - labelsWidth(m)) / 2) < 0.06;
 
-/** onDone(selectedId) after saving */
-export async function openMediaManager(selectId, onDone) {
+/** onDone(selectedId) after saving; forLabel: opened for the open label (saving also puts the roll on it) */
+export async function openMediaManager(selectId, onDone, { forLabel = false } = {}) {
   let list = mediaList();
+  const labelRoll = S.doc ? S.doc.page.mediaId : null;
+  const sizes = new Map(list.map((m) => [m.id, `${m.labelW}x${m.labelH}`]));
   let cur = list.find((m) => m.id === selectId) || list[0];
   const printersInfo = await loadPrinters();
   let prof = profileFor(pickDefaultPrinter(printersInfo));
@@ -280,11 +301,13 @@ export async function openMediaManager(selectId, onDone) {
 
   const drawList = () => listBox.replaceChildren(...list.map((m) => h('button', {
     class: 'media-item' + (m === cur ? ' on' : ''), type: 'button', onclick: () => { cur = m; drawAll(); },
-  }, miniGrid(m), h('span', { class: 'mi-text' }, h('b', {}, m.name || autoName(m)),
+  }, miniGrid(m), h('span', { class: 'mi-text' }, h('span', { class: 'mi-name' }, h('b', {}, m.name || autoName(m)),
+    m.id === labelRoll ? h('span', { class: 'pill' }, t('media.thisLabel')) : null),
     h('span', { class: 'muted' }, `${rollSummary(m)} · ${t('media.rollW', { n: fmt(m.linerW) })}`)))));
 
   const drawDiagram = () => {
-    diagram.replaceChildren(mediaDiagram(cur), h('div', { class: 'muted media-feed' }, '\u2193 ' + t('media.feedDir')));
+    diagram.replaceChildren(h('div', { class: 'media-dtitle' }, t('media.onePrintOf', { grid: t('media.grid', { cols: cur.cols, rows: cur.rows }) })),
+      mediaDiagram(cur), h('div', { class: 'muted media-feed' }, '\u2193 ' + t('media.feedDir')));
     highlight(lit);
   };
 
@@ -446,10 +469,12 @@ export async function openMediaManager(selectId, onDone) {
         common),
       form,
       h('div', { class: 'media-view' }, diagram, tools)),
-    buttons: [{ label: t('common.save'), value: true, primary: true }, { label: t('common.cancel'), value: false }],
+    buttons: [{ label: t(forLabel ? 'media.saveUse' : 'common.save'), value: true, primary: true }, { label: t('common.cancel'), value: false }],
   });
   if (!res) return null;
   await saveMediaList(list);
+  // Labels follow their roll: the open label is resized when the size of its roll's labels changed
+  emit('rolls-saved', list.filter((m) => sizes.has(m.id) && sizes.get(m.id) !== `${m.labelW}x${m.labelH}`).map((m) => m.id));
   toast(t('media.saved'), 'ok', 1500);
   if (onDone) onDone(cur.id);
   return cur.id;

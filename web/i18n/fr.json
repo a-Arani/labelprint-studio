@@ -609,10 +609,14 @@
   "media.gapOffset": "Décalage de l’espace",
   "media.grid": "{cols} en largeur × {rows} en hauteur",
   "media.multi": "{n} de front {size}",
-  "media.onePrint": "Une impression",
   "media.feedDir": "Sens du papier",
   "media.rollW": "rouleau {n} mm",
   "print.setupGrid": "Modèle {design} → {roll} : {cols} × {rows} étiquettes par impression, étiquette {label}, rotation {rot}",
   "print.totalPrints": "Étiquettes : {n} · impressions : {rows}",
-  "print.totalPrintsEmpty": "Étiquettes : {n} · impressions : {rows} · vides dans la dernière impression : {empty}"
+  "print.totalPrintsEmpty": "Étiquettes : {n} · impressions : {rows} · vides dans la dernière impression : {empty}",
+  "media.saveUse": "Enregistrer et utiliser pour cette étiquette",
+  "media.thisLabel": "Cette étiquette",
+  "media.onePrintOf": "Une impression : {grid}",
+  "page.rollMismatch": "Les étiquettes de ce rouleau font {size}",
+  "page.useRollSize": "Passer à {size}"
 }

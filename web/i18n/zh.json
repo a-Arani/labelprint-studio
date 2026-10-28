@@ -609,10 +609,14 @@
   "media.gapOffset": "间隙偏移",
   "media.grid": "横向 {cols} × 纵向 {rows}",
   "media.multi": "{n} 排 {size}",
-  "media.onePrint": "一次打印",
   "media.feedDir": "走纸方向",
   "media.rollW": "纸卷 {n} 毫米",
   "print.setupGrid": "设计 {design} → {roll}：每次打印 {cols} × {rows} 张，标签 {label}，旋转 {rot}",
   "print.totalPrints": "标签：{n} · 打印次数：{rows}",
-  "print.totalPrintsEmpty": "标签：{n} · 打印次数：{rows} · 最后一次空位：{empty}"
+  "print.totalPrintsEmpty": "标签：{n} · 打印次数：{rows} · 最后一次空位：{empty}",
+  "media.saveUse": "保存并用于此标签",
+  "media.thisLabel": "此标签",
+  "media.onePrintOf": "一次打印：{grid}",
+  "page.rollMismatch": "此纸卷的标签为 {size}",
+  "page.useRollSize": "改为 {size}"
 }

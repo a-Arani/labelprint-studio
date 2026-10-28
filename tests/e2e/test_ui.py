@@ -354,3 +354,47 @@ def test_rolls_window_and_two_by_two_print(page, app_url):
         return sum(1 for y in range(y0, y1) for x in range(x0, x1) if not (data[y * wb + (x >> 3)] & (0x80 >> (x & 7))))
     # Labels at 0-50 and 52-102 mm across, 0-25 and 27-52 mm down (8 dots per mm)
     assert all(ink(x0, x0 + 400, y0, y0 + 200) > 0 for x0 in (0, 416) for y0 in (0, 216))
+
+
+def test_label_follows_its_roll(page, app_url):
+    """A new label takes one label's size from its roll; edits in the Rolls window and a mismatch fix keep them in step."""
+    page.goto(app_url)
+    page.wait_for_selector("#splash", state="detached", timeout=10000)
+    page.click("#btn-new")
+    dlg = page.locator(".dlg").last
+    dlg.locator("select").select_option("m2x48x25")
+    assert [dlg.locator("input[type=number]").nth(i).input_value() for i in (0, 1)] == ["48", "25"]
+    dlg.locator("input.inp").first.fill("Shelf label")
+    dlg.locator(".btn-primary").click()
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc?.name === 'Shelf label'")
+    pg = "async () => { const p = (await import('/js/state.js')).S.doc.page; return [p.w, p.h, p.mediaId]; }"
+    assert page.evaluate(pg) == [48, 25, "m2x48x25"]
+
+    # The Rolls window opened from the label: the label's roll is marked, saving puts the edited roll on the label
+    page.locator("#props button", has_text="Rolls").click()
+    rolls = page.locator(".dlg-rolls")
+    rolls.wait_for()
+    assert rolls.locator(".media-item.on .pill").inner_text() == "This label"
+    assert rolls.locator(".media-svg .num").count() == 2          # one print: 2 across x 1 down
+    rolls.locator(".stepper").nth(1).locator("button").last.click()
+    assert rolls.locator(".media-svg .num").count() == 4          # 2 across x 2 down
+    rolls.locator(".stepper").nth(1).locator("button").first.click()
+    rolls.locator(".ms-pair input").first.fill("50")
+    save = rolls.locator(".dlg-foot .btn-primary")
+    assert save.inner_text() == "Save and use for this label"
+    save.click()
+    rolls.wait_for(state="detached")
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.w === 50")
+    assert page.evaluate(pg) == [50, 25, "m2x48x25"]
+
+    # A label of another size than its roll's labels says so, and one click fixes it (and can be undone)
+    w = page.locator('#props [data-key="pw"]')
+    w.fill("105")
+    w.dispatch_event("change")
+    page.locator(".roll-mismatch").wait_for()
+    page.locator(".roll-mismatch .chip").click()
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.w === 50")
+    assert page.locator(".roll-mismatch").count() == 0
+    page.keyboard.press("Escape")
+    page.click("#btn-undo")
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.w === 105")

@@ -6,7 +6,7 @@ import {
 } from './util.js';
 import { ICONS } from './icons.js';
 import { bbox } from './render.js';
-import { mediaList, openMediaManager, perPrint, rollGrid } from './media.js';
+import { mediaList, mediaById, matchMedia, fitsRoll, lastRoll, rememberRoll, openMediaManager, perPrint, rollGrid } from './media.js';
 import { t, isRTL, lang } from './i18n.js';
 import { openImageEditor, turnImage, mirrorImage, resetImage } from './imageeditor.js';
 import { fxOf, isEdited, MODES } from './imagefx.js';
@@ -674,17 +674,34 @@ export function scaleContent(doc, ow, oh, nw, nh) {
 export const rotValue = (v) => (v === undefined || v === null || v === 0 ? 'auto' : String(v));
 export const rotOptions = () => ['auto', 'auto180', '0', '90', '180', '270'].map((k) => [k, t('rot.' + k)]);
 
-function pagePanel() {
+// Resize the label; with "scale content" on, the elements follow (one undo step)
+function resizePage(w, hh, extra) {
   const p = S.doc.page;
-  const setPage = (fn) => mutate(fn, 'page');
-  // Resize the page; with "scale content" on, the elements follow
-  const resize = (w, hh, extra) => setPage(() => {
+  mutate(() => {
     const ow = p.w, oh = p.h;
     p.w = Math.max(5, r2(w));
     p.h = Math.max(5, r2(hh));
     if (extra) extra();
     if (S.scaleContent) scaleContent(S.doc, ow, oh, p.w, p.h);
-  });
+  }, 'page');
+}
+
+/** Put a roll on the open label: the label gets the size of one of its labels, upright or turned as the design is */
+export function useRoll(id) {
+  const p = S.doc && S.doc.page;
+  const m = p && mediaById(id);
+  if (!m) return;
+  rememberRoll(id);
+  const keepTurn = (p.w > p.h) !== (m.labelW > m.labelH) && Math.abs(m.labelW - m.labelH) > 0.6;
+  const w = keepTurn ? m.labelH : m.labelW, hh = keepTurn ? m.labelW : m.labelH;
+  if (p.mediaId === id && Math.abs(p.w - w) < 0.01 && Math.abs(p.h - hh) < 0.01) return;
+  resizePage(w, hh, () => { p.mediaId = id; });
+}
+
+function pagePanel() {
+  const p = S.doc.page;
+  const setPage = (fn) => mutate(fn, 'page');
+  const resize = resizePage;
   const preset = sel('preset', '', [['', t('page.presets')], ...PRESETS.map(([w, hh]) => [`${w}x${hh}`, dims(w, hh)])], (v) => {
     if (!v) return;
     const [w, hh] = v.split('x').map(Number);
@@ -695,10 +712,7 @@ function pagePanel() {
   const turned = m ? Math.abs(p.w - m.labelH) < 0.6 && Math.abs(p.h - m.labelW) < 0.6 && Math.abs(m.labelW - m.labelH) > 0.6 : false;
   const mediaSel = sel('media', m ? m.id : '', [['', t('page.manual')], ...ms.map((x) => [x.id, perPrint(x) > 1 ? `${x.name} (${rollGrid(x)})` : x.name])], (id) => {
     if (!id) { setPage(() => { delete p.mediaId; }); return; }
-    const nm = ms.find((x) => x.id === id);
-    // Keep the current design orientation (landscape or portrait)
-    const keepTurn = (p.w > p.h) !== (nm.labelW > nm.labelH) && Math.abs(nm.labelW - nm.labelH) > 0.6;
-    resize(keepTurn ? nm.labelH : nm.labelW, keepTurn ? nm.labelW : nm.labelH, () => { p.mediaId = id; });
+    useRoll(id);
   });
   const orient = m && Math.abs(m.labelW - m.labelH) > 0.6 ? field(t('page.orientOnRoll'), sel('orient', turned ? 'turned' : 'same',
     [['same', t('orient.same')], ['turned', t('orient.turned')]], (v) => resize(v === 'turned' ? m.labelH : m.labelW, v === 'turned' ? m.labelW : m.labelH))) : h('span');
@@ -708,8 +722,13 @@ function pagePanel() {
   }, 'scaleContent');
   const info = m ? [rollGrid(m) || null, t('page.rollInfo', { size: dims(m.labelW, m.labelH), width: m.linerW })].filter(Boolean).join(' · ') : null;
   return section(t('page.title'),
-    h('div', { class: 'prow prow-btn' }, field(t('page.roll'), mediaSel), h('button', { class: 'btn btn-ghost', onclick: () => openMediaManager(p.mediaId, () => buildProps()) }, t('page.rollTypes'))),
+    h('div', { class: 'prow prow-btn' }, field(t('page.roll'), mediaSel), h('button', {
+      class: 'btn btn-ghost', onclick: () => openMediaManager(p.mediaId || (matchMedia(p) || {}).id || lastRoll(), (id) => useRoll(id), { forLabel: true }),
+    }, t('page.rollTypes'))),
     info ? h('div', { class: 'var-sample' }, info) : null,
+    // The label is not the size of one label of its roll (both are shown in millimetres)
+    m && !fitsRoll(p, m) ? h('div', { class: 'roll-mismatch' }, h('span', { class: 'err-text' }, t('page.rollMismatch', { size: dims(m.labelW, m.labelH) })),
+      h('button', { class: 'chip', type: 'button', onclick: () => useRoll(m.id) }, t('page.useRollSize', { size: dims(m.labelW, m.labelH) }))) : null,
     row(field(t('props.width'), num('pw', p.w, (v) => resize(v, p.h), { min: 5, step: 0.5, suffix: 'mm' })),
       field(t('props.height'), num('ph', p.h, (v) => resize(p.w, v), { min: 5, step: 0.5, suffix: 'mm' }))),
     row(preset, h('button', { class: 'btn btn-ghost', title: t('page.swapTip'), onclick: () => resize(p.h, p.w) }, t('page.swap'))),
@@ -870,6 +889,11 @@ export function initPanels(ed) {
   on('editing', () => { savedRange = null; refreshFormat(); });
   on('fonts', () => refreshFormat());
   on('image-edit', (e) => openImageEditor(e));
+  // A roll was edited: the open label keeps the size of one label of its roll
+  on('rolls-saved', (resized) => {
+    if (S.doc && resized.includes(S.doc.page.mediaId)) useRoll(S.doc.page.mediaId);
+    else if (S.doc) buildProps();
+  });
   on('focus-prop', () => {
     const i = document.querySelector('#props [data-key="value"]');
     if (i) { i.focus(); if (i.select) i.select(); }

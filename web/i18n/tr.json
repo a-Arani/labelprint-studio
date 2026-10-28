@@ -609,10 +609,14 @@
   "media.gapOffset": "Boşluk kayması",
   "media.grid": "{cols} yan yana × {rows} alt alta",
   "media.multi": "{n} sıra {size}",
-  "media.onePrint": "Bir baskı",
   "media.feedDir": "Kâğıt yönü",
   "media.rollW": "rulo {n} mm",
   "print.setupGrid": "Tasarım {design} → {roll}: her baskıda {cols} × {rows} etiket, etiket {label}, döndürme {rot}",
   "print.totalPrints": "Etiket: {n} · baskı: {rows}",
-  "print.totalPrintsEmpty": "Etiket: {n} · baskı: {rows} · son baskıda boş: {empty}"
+  "print.totalPrintsEmpty": "Etiket: {n} · baskı: {rows} · son baskıda boş: {empty}",
+  "media.saveUse": "Kaydet ve bu etiket için kullan",
+  "media.thisLabel": "Bu etiket",
+  "media.onePrintOf": "Bir baskı: {grid}",
+  "page.rollMismatch": "Bu rulonun etiketleri {size}",
+  "page.useRollSize": "{size} yap"
 }

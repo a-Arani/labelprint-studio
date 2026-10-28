@@ -609,10 +609,14 @@
   "media.gapOffset": "إزاحة الفجوة",
   "media.grid": "{cols} بالعرض × {rows} بالطول",
   "media.multi": "{n} أعمدة {size}",
-  "media.onePrint": "طباعة واحدة",
   "media.feedDir": "اتجاه الورق",
   "media.rollW": "لفة {n} مم",
   "print.setupGrid": "التصميم {design} ← {roll}: {cols} × {rows} ملصقات في كل طباعة، ملصق {label}، تدوير {rot}",
   "print.totalPrints": "الملصقات: {n} · مرات الطباعة: {rows}",
-  "print.totalPrintsEmpty": "الملصقات: {n} · مرات الطباعة: {rows} · الفارغ في الطباعة الأخيرة: {empty}"
+  "print.totalPrintsEmpty": "الملصقات: {n} · مرات الطباعة: {rows} · الفارغ في الطباعة الأخيرة: {empty}",
+  "media.saveUse": "حفظ واستخدام لهذا الملصق",
+  "media.thisLabel": "هذا الملصق",
+  "media.onePrintOf": "طباعة واحدة: {grid}",
+  "page.rollMismatch": "ملصقات هذه اللفة {size}",
+  "page.useRollSize": "اجعله {size}"
 }

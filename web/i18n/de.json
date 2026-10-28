@@ -609,10 +609,14 @@
   "media.gapOffset": "Lückenversatz",
   "media.grid": "{cols} nebeneinander × {rows} untereinander",
   "media.multi": "{n}-bahnig {size}",
-  "media.onePrint": "Ein Druck",
   "media.feedDir": "Papierrichtung",
   "media.rollW": "Rolle {n} mm",
   "print.setupGrid": "Entwurf {design} → {roll}: {cols} × {rows} Etiketten pro Druck, Etikett {label}, Drehung {rot}",
   "print.totalPrints": "Etiketten: {n} · Drucke: {rows}",
-  "print.totalPrintsEmpty": "Etiketten: {n} · Drucke: {rows} · leer im letzten Druck: {empty}"
+  "print.totalPrintsEmpty": "Etiketten: {n} · Drucke: {rows} · leer im letzten Druck: {empty}",
+  "media.saveUse": "Speichern und für dieses Etikett verwenden",
+  "media.thisLabel": "Dieses Etikett",
+  "media.onePrintOf": "Ein Druck: {grid}",
+  "page.rollMismatch": "Die Etiketten dieser Rolle sind {size}",
+  "page.useRollSize": "Auf {size} setzen"
 }

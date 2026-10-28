@@ -4,7 +4,7 @@ import { h, api, toast, dialog, confirmBox } from './util.js';
 import { t } from './i18n.js';
 import { ICONS } from './icons.js';
 import { loadPrinters, profileFor, saveProfile, pickDefaultPrinter } from './printers.js';
-import { mediaList, normMedia, tsplOf, layoutTestCanvas } from './media.js';
+import { mediaList, normMedia, matchMedia, tsplOf, layoutTestCanvas } from './media.js';
 import { toMono, monoToBase64 } from './render.js';
 
 const FINISH = ['tear', 'peel', 'cut', 'cutBatch', 'none'];
@@ -24,7 +24,9 @@ export async function openPrinterControl(printerName, mediaId) {
   const host = h('input', { class: 'inp', dir: 'ltr', placeholder: '192.168.1.50' });
   const port = h('input', { class: 'inp', type: 'number', dir: 'ltr' });
   const rollSel = h('select', { class: 'inp' }, ...media.map((m) => h('option', { value: m.id }, m.name)));
-  rollSel.value = media.some((m) => m.id === mediaId) ? mediaId : (S.doc && media.some((m) => m.id === S.doc.page.mediaId) ? S.doc.page.mediaId : media[0].id);
+  // The same roll as everywhere else: the one given, else the open label's roll (or the roll its size matches)
+  const want = mediaId || (S.doc && (matchMedia(S.doc.page) || {}).id);
+  rollSel.value = media.some((m) => m.id === want) ? want : media[0].id;
   const distance = h('input', { class: 'inp num', type: 'number', min: 0.1, max: 500, step: 0.5, value: 10, title: t('pc.distance'), 'aria-label': t('pc.distance') });
   const finish = h('select', { class: 'inp' }, ...FINISH.map((k) => h('option', { value: k }, t('pc.finish.' + k))));
   const backExtra = h('input', { class: 'inp num', type: 'number', min: -50, max: 200, step: 1 });

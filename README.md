@@ -185,7 +185,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.2.0-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.2.1-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.
@@ -205,7 +205,7 @@ Run **`Stop LabelPrint Studio.bat`** in the installation folder (it ends every r
 1. Click **New** and enter the label size in millimetres (for example 100 × 50), or pick a common size.
 2. Add text, a barcode or a QR code from the toolbar on the left.
 3. For numbered labels, click **+ Counter** in the right panel and insert it into a text or barcode.
-4. In the right panel, choose your **roll**, or click **Rolls…** to describe it (labels in each print, the size of one label, gaps).
+4. Choose your **roll** when you create the label (or later in the right panel), or click **Rolls…** to describe it (labels in each print, the size of one label, gaps); the label takes the size of one of its labels.
 5. Click **Print**, select your printer, choose **Direct (TSPL)** for a TSC printer, set the number range and press **Print**.
 
 > **Tip:** after loading a new roll into a TSC printer, open **Rolls… → Printer tools → Calibrate sensor**, then **Print layout test** to check the position before printing a large batch.

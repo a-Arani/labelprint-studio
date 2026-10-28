@@ -13,7 +13,7 @@ import { openLogs, openVersions, openBackup } from './support.js';
 import { newProductDialog, openProducts, makeTemplateFrom, loadLabel } from './products.js';
 import { openAbout, langMenu, appMeta } from './about.js';
 import * as logger from './logger.js';
-import { mediaById } from './media.js';
+import { mediaById, mediaList, rollSummary, lastRoll, rememberRoll, fitsRoll } from './media.js';
 import { openPrinterControl } from './printercontrol.js';
 
 const $ = (id) => document.getElementById(id);
@@ -65,20 +65,34 @@ async function newLabel() {
   const name = h('input', { class: 'inp', value: t('doc.newName'), dir: 'auto' });
   const w = h('input', { class: 'inp', type: 'number', value: 100, min: 5, step: 0.5 });
   const hh = h('input', { class: 'inp', type: 'number', value: 50, min: 5, step: 0.5 });
+  // A roll gives the size of one of its labels; another size makes it a custom size
+  const rolls = mediaList();
+  const rollSel = h('select', { class: 'inp' }, h('option', { value: '' }, t('page.manual')),
+    ...rolls.map((m) => h('option', { value: m.id }, `${m.name} — ${rollSummary(m)}`)));
+  rollSel.value = rolls.some((m) => m.id === lastRoll()) ? lastRoll() : '';
+  const roll = () => rolls.find((m) => m.id === rollSel.value);
+  const fromRoll = () => { const m = roll(); if (m) { w.value = m.labelW; hh.value = m.labelH; } };
+  const custom = () => { const m = roll(); if (m && !fitsRoll({ w: parseFloat(w.value), h: parseFloat(hh.value) }, m)) rollSel.value = ''; };
+  rollSel.addEventListener('change', fromRoll);
+  w.addEventListener('input', custom);
+  hh.addEventListener('input', custom);
+  fromRoll();
   const chips = h('div', { class: 'btn-row wrap' }, ...PRESETS.map(([pw, ph]) => h('button', {
-    class: 'chip', type: 'button', onclick: () => { w.value = pw; hh.value = ph; },
+    class: 'chip', type: 'button', onclick: () => { w.value = pw; hh.value = ph; custom(); },
   }, dims(pw, ph))));
   const ok = await dialog({
     title: t('doc.newTitle'),
     body: h('div', {},
       h('label', { class: 'field' }, h('span', {}, t('media.name')), name),
+      h('label', { class: 'field' }, h('span', {}, t('page.roll')), rollSel),
       h('div', { class: 'prow' }, h('label', { class: 'field' }, h('span', {}, t('doc.widthMm')), w), h('label', { class: 'field' }, h('span', {}, t('doc.heightMm')), hh)),
       chips,
       h('div', { class: 'muted' }, t('doc.folder', { name: folderLabel() }))),
     buttons: [{ label: t('doc.create'), value: true, primary: true }, { label: t('common.cancel'), value: false }],
   });
   if (!ok) return;
-  const doc = normalize({ name: name.value.trim() || t('doc.newName'), page: { w: parseFloat(w.value) || 100, h: parseFloat(hh.value) || 50 } });
+  const doc = normalize({ name: name.value.trim() || t('doc.newName'), page: { w: parseFloat(w.value) || 100, h: parseFloat(hh.value) || 50, mediaId: rollSel.value || undefined } });
+  if (rollSel.value) rememberRoll(rollSel.value);
   try {
     const thumb = await thumbnail(doc);
     const { path, uid: newUid } = await api('/api/library/save', { path: inFolder(S.folder, doc.name), label: doc, thumb, overwrite: false });

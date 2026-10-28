@@ -3,6 +3,12 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] - 2026-10-28
+
+### Changed
+- **A label and its roll stay in step everywhere.** *New label* asks for the roll (the one used last comes first) and takes the size of one of its labels. *Rolls…* in the label panel saves with **Save and use for this label**, and the roll the label uses is marked *This label*. When the size of a roll's labels changes, labels on that roll follow. If a label's size differs from its roll's labels, the panel says so and fixes it with one click (undoable). Printer control starts with the label's roll, like the print window.
+- The roll picture shows **one print** only (the labels across, and down if set), with the roll going on above and below, so *Down* matches what you see.
+
 ## [2.2.0] - 2026-10-27
 
 ### Changed
@@ -122,6 +128,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.2.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.2.1
 [2.2.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.2.0
 [2.1.7]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.7
 [2.1.6]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.6
