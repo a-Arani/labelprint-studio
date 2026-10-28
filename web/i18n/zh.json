@@ -618,5 +618,13 @@
   "media.thisLabel": "此标签",
   "media.onePrintOf": "一次打印：{grid}",
   "page.rollMismatch": "此纸卷的标签为 {size}",
-  "page.useRollSize": "改为 {size}"
+  "page.useRollSize": "改为 {size}",
+  "page.across": "并排标签",
+  "page.acrossSame": "全部相同",
+  "page.acrossEach": "各不相同",
+  "page.showRow": "显示整个宽度",
+  "page.rowDesign": "设计为一次完整打印：{size} 毫米",
+  "page.rowMismatch": "此纸卷一次打印为 {size}",
+  "page.acrossDrop": "只保留标签 1，其他标签上的内容将被删除。",
+  "print.setupEach": "设计 {design} → {roll}：每次打印 {n} 张不同标签，旋转 {rot}"
 }

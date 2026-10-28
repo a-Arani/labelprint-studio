@@ -618,5 +618,13 @@
   "media.thisLabel": "Cette étiquette",
   "media.onePrintOf": "Une impression : {grid}",
   "page.rollMismatch": "Les étiquettes de ce rouleau font {size}",
-  "page.useRollSize": "Passer à {size}"
+  "page.useRollSize": "Passer à {size}",
+  "page.across": "Étiquettes côte à côte",
+  "page.acrossSame": "Toutes identiques",
+  "page.acrossEach": "Chacune différente",
+  "page.showRow": "Afficher toute la largeur",
+  "page.rowDesign": "Le modèle est une impression entière : {size} mm",
+  "page.rowMismatch": "Une impression de ce rouleau fait {size}",
+  "page.acrossDrop": "Seule l’étiquette 1 est gardée ; le contenu des autres est supprimé.",
+  "print.setupEach": "Modèle {design} → {roll} : {n} étiquettes différentes par impression, rotation {rot}"
 }

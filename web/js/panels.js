@@ -1,12 +1,15 @@
 // Text format bar, properties panel and variables panel
 import { S, on, emit, snapshot, changed, byId, selected } from './state.js';
 import {
-  h, r2, cssFont, api, toast, pickFiles, fileToBase64, fileToDataURL, shrinkImage, uid, dims,
+  h, r2, cssFont, api, toast, pickFiles, fileToBase64, fileToDataURL, shrinkImage, uid, dims, clone, confirmBox,
   VAR_KINDS, varTypeName, newVariable, variableNames, formatDate, previewValues, fieldNames, localDigits,
 } from './util.js';
 import { ICONS } from './icons.js';
 import { bbox } from './render.js';
-import { mediaList, mediaById, matchMedia, fitsRoll, lastRoll, rememberRoll, openMediaManager, perPrint, rollGrid } from './media.js';
+import {
+  mediaList, mediaById, matchMedia, fitsRoll, lastRoll, rememberRoll, openMediaManager, perPrint, rollGrid,
+  gridOf, gridSize, cellOrigin, cellAt, isEach, showRow,
+} from './media.js';
 import { t, isRTL, lang } from './i18n.js';
 import { openImageEditor, turnImage, mirrorImage, resetImage } from './imageeditor.js';
 import { fxOf, isEdited, MODES } from './imagefx.js';
@@ -686,12 +689,101 @@ function resizePage(w, hh, extra) {
   }, 'page');
 }
 
-/** Put a roll on the open label: the label gets the size of one of its labels, upright or turned as the design is */
+// ---------- a whole print designed at once, every label different
+function moveEl(e, dx, dy) {
+  if (e.type === 'line') {
+    e.x1 = r2(e.x1 + dx); e.y1 = r2(e.y1 + dy); e.x2 = r2(e.x2 + dx); e.y2 = r2(e.y2 + dy);
+  } else {
+    e.x = r2(e.x + dx); e.y = r2(e.y + dy);
+  }
+  return e;
+}
+const copyEl = (e, dx, dy) => moveEl({ ...clone(e), id: uid() }, dx, dy);
+
+/** The elements sorted into the labels of grid g (in print order), by where their middle is */
+function byCell(g) {
+  const out = Array.from({ length: g.cols * g.rows }, () => []);
+  for (const e of S.doc.elements) {
+    const b = bbox(e);
+    out[cellAt(g, b.x + b.w / 2, b.y + b.h / 2)].push(e);
+  }
+  return out;
+}
+
+/** Lay the design out for grid ng: every label keeps its content, a new label gets a copy of label 1 */
+function regrid(og, ng) {
+  const cells = byCell(og);
+  const els = [];
+  for (let k = 0; k < ng.cols * ng.rows; k++) {
+    const to = cellOrigin(ng, k);
+    if (k < cells.length) {
+      const from = cellOrigin(og, k);
+      for (const e of cells[k]) els.push(moveEl(e, to.x - from.x, to.y - from.y));
+    } else {
+      for (const e of cells[0]) els.push(copyEl(e, to.x, to.y));
+    }
+  }
+  S.doc.elements = els;
+}
+
+const sameGrid = (a, b) => ['cols', 'rows', 'w', 'h', 'gx', 'gy'].every((k) => Math.abs((a[k] || 0) - (b[k] || 0)) < 0.01);
+
+/** Same design on every label (one label to design), or every label different (the whole print to design) */
+async function setAcross(each) {
+  const p = S.doc.page, m = mediaById(p.mediaId);
+  if (!m || perPrint(m) < 2 || each === isEach(p, m)) return;
+  if (each) {
+    const g = gridOf(m), size = gridSize(g);
+    mutate(() => {
+      // Every label starts as a copy of the one designed so far
+      const one = S.doc.elements;
+      const els = [...one];
+      for (let k = 1; k < g.cols * g.rows; k++) {
+        const o = cellOrigin(g, k);
+        for (const e of one) els.push(copyEl(e, o.x, o.y));
+      }
+      S.doc.elements = els;
+      Object.assign(p, { w: size.w, h: size.h, across: 'each', grid: g });
+    }, 'page');
+    return;
+  }
+  const g = p.grid || gridOf(m);
+  const cells = byCell(g);
+  if (cells.slice(1).some((c) => c.length) && !(await confirmBox(t('page.acrossSame'), t('page.acrossDrop'), t('common.ok')))) return;
+  mutate(() => {
+    S.doc.elements = cells[0];
+    Object.assign(p, { w: g.w, h: g.h });
+    delete p.across;
+    delete p.grid;
+  }, 'page');
+}
+
+/** Put a roll on the open label: the label gets the size of one of its labels (upright or turned as the design is),
+ * or, designed as a whole print, the size of one print with every label's content in its place */
 export function useRoll(id) {
   const p = S.doc && S.doc.page;
   const m = p && mediaById(id);
   if (!m) return;
   rememberRoll(id);
+  if (p.across === 'each') {
+    const og = p.grid || gridOf(m);
+    if (perPrint(m) < 2) {
+      mutate(() => {
+        S.doc.elements = byCell(og)[0];
+        Object.assign(p, { w: m.labelW, h: m.labelH, mediaId: id });
+        delete p.across;
+        delete p.grid;
+      }, 'page');
+      return;
+    }
+    const ng = gridOf(m), size = gridSize(ng);
+    if (p.mediaId === id && sameGrid(og, ng) && Math.abs(p.w - size.w) < 0.01 && Math.abs(p.h - size.h) < 0.01) return;
+    mutate(() => {
+      regrid(og, ng);
+      Object.assign(p, { w: size.w, h: size.h, grid: ng, mediaId: id });
+    }, 'page');
+    return;
+  }
   const keepTurn = (p.w > p.h) !== (m.labelW > m.labelH) && Math.abs(m.labelW - m.labelH) > 0.6;
   const w = keepTurn ? m.labelH : m.labelW, hh = keepTurn ? m.labelW : m.labelH;
   if (p.mediaId === id && Math.abs(p.w - w) < 0.01 && Math.abs(p.h - hh) < 0.01) return;
@@ -709,31 +801,51 @@ function pagePanel() {
   });
   const ms = mediaList();
   const m = ms.find((x) => x.id === p.mediaId);
+  const each = isEach(p, m);
   const turned = m ? Math.abs(p.w - m.labelH) < 0.6 && Math.abs(p.h - m.labelW) < 0.6 && Math.abs(m.labelW - m.labelH) > 0.6 : false;
   const mediaSel = sel('media', m ? m.id : '', [['', t('page.manual')], ...ms.map((x) => [x.id, perPrint(x) > 1 ? `${x.name} (${rollGrid(x)})` : x.name])], (id) => {
-    if (!id) { setPage(() => { delete p.mediaId; }); return; }
+    if (!id) { setPage(() => { delete p.mediaId; delete p.across; delete p.grid; }); return; }
     useRoll(id);
   });
-  const orient = m && Math.abs(m.labelW - m.labelH) > 0.6 ? field(t('page.orientOnRoll'), sel('orient', turned ? 'turned' : 'same',
+  const orient = !each && m && Math.abs(m.labelW - m.labelH) > 0.6 ? field(t('page.orientOnRoll'), sel('orient', turned ? 'turned' : 'same',
     [['same', t('orient.same')], ['turned', t('orient.turned')]], (v) => resize(v === 'turned' ? m.labelH : m.labelW, v === 'turned' ? m.labelW : m.labelH))) : h('span');
   const scaleChk = check(t('page.scaleContent'), S.scaleContent, (v) => {
     S.scaleContent = v;
     try { localStorage.setItem('ls.scaleContent', v ? '1' : ''); } catch (e) { /* storage unavailable */ }
   }, 'scaleContent');
   const info = m ? [rollGrid(m) || null, t('page.rollInfo', { size: dims(m.labelW, m.labelH), width: m.linerW })].filter(Boolean).join(' · ') : null;
+  // Several labels in each print: the same design on all of them, or each one different (designed together)
+  const rowSize = m ? gridSize(gridOf(m)) : null;
+  const across = m && perPrint(m) > 1 ? h('div', { class: 'across' },
+    h('span', { class: 'across-t' }, t('page.across')),
+    h('div', { class: 'seg' }, ...[[false, 'page.acrossSame'], [true, 'page.acrossEach']].map(([v, key]) => h('button', {
+      class: 'seg-b' + (each === v ? ' on' : ''), type: 'button', 'aria-pressed': String(each === v), onclick: () => setAcross(v),
+    }, t(key)))),
+    each ? null : check(t('page.showRow'), showRow(), (v) => {
+      try { localStorage.setItem('ls.showRow', v ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+      emit('change', 'view');
+    }, 'showRow')) : null;
+  const mismatch = !m ? null
+    : each ? (Math.abs(p.w - rowSize.w) > 0.6 || Math.abs(p.h - rowSize.h) > 0.6
+      ? h('div', { class: 'roll-mismatch' }, h('span', { class: 'err-text' }, t('page.rowMismatch', { size: dims(rowSize.w, rowSize.h) })),
+        h('button', { class: 'chip', type: 'button', onclick: () => useRoll(m.id) }, t('page.useRollSize', { size: dims(rowSize.w, rowSize.h) }))) : null)
+      // The label is not the size of one label of its roll (both are shown in millimetres)
+      : !fitsRoll(p, m) ? h('div', { class: 'roll-mismatch' }, h('span', { class: 'err-text' }, t('page.rollMismatch', { size: dims(m.labelW, m.labelH) })),
+        h('button', { class: 'chip', type: 'button', onclick: () => useRoll(m.id) }, t('page.useRollSize', { size: dims(m.labelW, m.labelH) }))) : null;
   return section(t('page.title'),
     h('div', { class: 'prow prow-btn' }, field(t('page.roll'), mediaSel), h('button', {
       class: 'btn btn-ghost', onclick: () => openMediaManager(p.mediaId || (matchMedia(p) || {}).id || lastRoll(), (id) => useRoll(id), { forLabel: true }),
     }, t('page.rollTypes'))),
     info ? h('div', { class: 'var-sample' }, info) : null,
-    // The label is not the size of one label of its roll (both are shown in millimetres)
-    m && !fitsRoll(p, m) ? h('div', { class: 'roll-mismatch' }, h('span', { class: 'err-text' }, t('page.rollMismatch', { size: dims(m.labelW, m.labelH) })),
-      h('button', { class: 'chip', type: 'button', onclick: () => useRoll(m.id) }, t('page.useRollSize', { size: dims(m.labelW, m.labelH) }))) : null,
-    row(field(t('props.width'), num('pw', p.w, (v) => resize(v, p.h), { min: 5, step: 0.5, suffix: 'mm' })),
+    across,
+    mismatch,
+    // Designed as a whole print, the size comes from the roll
+    each ? h('div', { class: 'var-sample' }, t('page.rowDesign', { size: dims(p.w, p.h) })) : null,
+    each ? null : row(field(t('props.width'), num('pw', p.w, (v) => resize(v, p.h), { min: 5, step: 0.5, suffix: 'mm' })),
       field(t('props.height'), num('ph', p.h, (v) => resize(p.w, v), { min: 5, step: 0.5, suffix: 'mm' }))),
-    row(preset, h('button', { class: 'btn btn-ghost', title: t('page.swapTip'), onclick: () => resize(p.h, p.w) }, t('page.swap'))),
-    scaleChk,
-    row(orient, field(t('page.printRotate'), sel('printRotate', rotValue(p.printRotate), rotOptions(), (v) => setPage(() => { p.printRotate = v; })))),
+    each ? null : row(preset, h('button', { class: 'btn btn-ghost', title: t('page.swapTip'), onclick: () => resize(p.h, p.w) }, t('page.swap'))),
+    each ? null : scaleChk,
+    row(orient, field(t('page.printRotate'), sel('printRotate', rotValue(p.printRotate), each ? rotOptions().filter(([v]) => ['auto', 'auto180', '0', '180'].includes(v)) : rotOptions(), (v) => setPage(() => { p.printRotate = v; })))),
     row(check(t('page.showGrid'), S.grid.show, (v) => { S.grid.show = v; editor.drawOverlay(); }, 'gshow'),
       field(t('page.gridSize'), num('gsize', S.grid.size, (v) => { S.grid.size = Math.max(0.5, v); editor.drawOverlay(); }, { min: 0.5, step: 0.5, suffix: 'mm' }))),
   );
@@ -891,8 +1003,9 @@ export function initPanels(ed) {
   on('image-edit', (e) => openImageEditor(e));
   // A roll was edited: the open label keeps the size of one label of its roll
   on('rolls-saved', (resized) => {
-    if (S.doc && resized.includes(S.doc.page.mediaId)) useRoll(S.doc.page.mediaId);
-    else if (S.doc) buildProps();
+    if (!S.doc) return;
+    if (resized.includes(S.doc.page.mediaId)) useRoll(S.doc.page.mediaId);
+    emit('change', 'view');
   });
   on('focus-prop', () => {
     const i = document.querySelector('#props [data-key="value"]');

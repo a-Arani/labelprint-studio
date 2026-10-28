@@ -618,5 +618,13 @@
   "media.thisLabel": "Dieses Etikett",
   "media.onePrintOf": "Ein Druck: {grid}",
   "page.rollMismatch": "Die Etiketten dieser Rolle sind {size}",
-  "page.useRollSize": "Auf {size} setzen"
+  "page.useRollSize": "Auf {size} setzen",
+  "page.across": "Etiketten nebeneinander",
+  "page.acrossSame": "Alle gleich",
+  "page.acrossEach": "Jedes anders",
+  "page.showRow": "Ganze Breite zeigen",
+  "page.rowDesign": "Der Entwurf ist ein ganzer Druck: {size} mm",
+  "page.rowMismatch": "Ein Druck dieser Rolle ist {size}",
+  "page.acrossDrop": "Nur Etikett 1 bleibt; was auf den anderen Etiketten ist, wird entfernt.",
+  "print.setupEach": "Entwurf {design} → {roll}: {n} verschiedene Etiketten pro Druck, Drehung {rot}"
 }

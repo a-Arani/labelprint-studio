@@ -2,7 +2,7 @@
 import { S, emit, on, snapshot, changed, select, byId, selected, dropLastSnapshot } from './state.js';
 import { PXMM, uid, clamp, r2, h, clone, previewValues } from './util.js';
 import { renderElement, renderLabel, applyFits, bbox } from './render.js';
-import { mediaById } from './media.js';
+import { mediaById, perPrint, layout as rollLayout, gridOf, cellOrigin, isEach, showRow } from './media.js';
 import { t } from './i18n.js';
 import { onReady } from './imagefx.js';
 
@@ -36,10 +36,13 @@ export class Editor {
   constructor(ws) {
     this.ws = ws;
     this.stage = h('div', { class: 'stage' });
+    // Behind the label: the roll with the other labels of a print; above it: where each label of a whole-print design is
+    this.rowView = h('div', { class: 'row-view', hidden: true });
     this.holder = h('div', { class: 'paper-holder' });
+    this.guides = h('div', { class: 'cell-guides', hidden: true });
     this.overlay = h('div', { class: 'overlay' });
     this.temp = null;
-    this.stage.append(this.holder, this.overlay);
+    this.stage.append(this.rowView, this.holder, this.guides, this.overlay);
     ws.append(this.stage);
     this.drag = null;
     this.clip = [];
@@ -99,23 +102,93 @@ export class Editor {
       old.replaceWith(renderElement(e, ctx));
     }
     applyFits(ctx.fits);
+    this.queueCopies();
+  }
+
+  /** What is shown around the label: the roll with copies of the label (same design on every label of a print),
+   * the labels of a whole-print design, or nothing */
+  rollView() {
+    const p = S.doc.page, m = mediaById(p.mediaId);
+    if (!m || perPrint(m) < 2) return null;
+    if (isEach(p, m)) return { each: true, m, g: p.grid || gridOf(m) };
+    // Copies only while the design stands on the roll as it is, not turned
+    if (!showRow() || Math.abs(p.w - m.labelW) > 0.6 || Math.abs(p.h - m.labelH) > 0.6) return null;
+    return { each: false, m, L: rollLayout(m) };
+  }
+
+  /** The area to show, in mm: the label, or the roll width around it (with a little backing paper above and below) */
+  viewSize() {
+    const rv = S.doc && this.rollView();
+    if (rv && !rv.each) return { w: rv.m.linerW, h: rv.L.pageH + 8 };
+    return { w: S.doc.page.w, h: S.doc.page.h };
   }
 
   layout() {
     if (!S.doc) return;
     const k = this.k();
     const pw = S.doc.page.w * k, ph = S.doc.page.h * k;
+    const rv = this.rollView();
+    const view = this.viewSize();
+    const bw = view.w * k, bh = view.h * k;
     const m = 70;
-    const sw = Math.max(this.ws.clientWidth, pw + 2 * m), sh = Math.max(this.ws.clientHeight, ph + 2 * m);
+    const sw = Math.max(this.ws.clientWidth, bw + 2 * m), sh = Math.max(this.ws.clientHeight, bh + 2 * m);
     this.stage.style.width = sw + 'px';
     this.stage.style.height = sh + 'px';
-    const left = (sw - pw) / 2, top = (sh - ph) / 2;
-    for (const n of [this.holder, this.overlay]) {
+    const bl = (sw - bw) / 2, bt = (sh - bh) / 2;
+    // The label sits where it is on the roll
+    const left = rv && !rv.each ? bl + rv.L.xs[0] * k : bl, top = rv && !rv.each ? bt + 4 * k : bt;
+    for (const n of [this.holder, this.guides, this.overlay]) {
       Object.assign(n.style, { left: left + 'px', top: top + 'px', width: pw + 'px', height: ph + 'px' });
     }
-    // Rounded label corners, from the roll type
+    // Rounded label corners, from the roll type (a whole-print design shows them on each label instead)
     const media = mediaById(S.doc.page.mediaId);
-    this.holder.style.borderRadius = media && media.radius ? `${media.radius * k}px` : '';
+    this.holder.style.borderRadius = media && media.radius && !(rv && rv.each) ? `${media.radius * k}px` : '';
+    this.rowView.hidden = !(rv && !rv.each);
+    if (!this.rowView.hidden) Object.assign(this.rowView.style, { left: bl + 'px', top: bt + 'px', width: bw + 'px', height: bh + 'px' });
+    this.drawGuides(rv && rv.each ? rv : null);
+    this.queueCopies();
+  }
+
+  /** A whole-print design: the gaps between labels (not printed), each label's outline and number */
+  drawGuides(rv) {
+    this.guides.hidden = !rv;
+    if (!rv) { this.guides.replaceChildren(); return; }
+    const k = this.k(), { g, m } = rv;
+    const out = [];
+    const box = (cls, x, y, w, hh, extra = {}) => h('div', { class: cls, style: { left: x * k + 'px', top: y * k + 'px', width: w * k + 'px', height: hh * k + 'px', ...extra } });
+    for (let c = 1; c < g.cols; c++) out.push(box('cg-gap', c * (g.w + g.gx) - g.gx, 0, g.gx, S.doc.page.h));
+    for (let r = 1; r < g.rows; r++) out.push(box('cg-gap', 0, r * (g.h + g.gy) - g.gy, S.doc.page.w, g.gy));
+    for (let i = 0; i < g.cols * g.rows; i++) {
+      const o = cellOrigin(g, i);
+      const cell = box('cg-cell', o.x, o.y, g.w, g.h, { borderRadius: m.radius ? `${m.radius * k}px` : '' });
+      cell.append(h('span', { class: 'cg-num' }, String(i + 1)));
+      out.push(cell);
+    }
+    this.guides.replaceChildren(...out);
+  }
+
+  /** The other labels of a print, as live copies of the one being designed (redrawn once per frame) */
+  queueCopies() {
+    if (this.copiesQueued) return;
+    this.copiesQueued = true;
+    requestAnimationFrame(() => {
+      this.copiesQueued = false;
+      const rv = S.doc && this.paper && !this.rowView.hidden ? this.rollView() : null;
+      if (!rv || rv.each) { this.rowView.replaceChildren(); return; }
+      const k = this.k(), { m, L } = rv;
+      const out = [];
+      for (let i = 0; i < perPrint(m); i++) {
+        const x = L.xs[i % m.cols] * k, y = (4 + L.ys[Math.floor(i / m.cols)]) * k;
+        // Label 1 is the one being designed (in front); the others show the same design
+        if (i) {
+          out.push(h('div', {
+            class: 'row-copy', style: { left: x + 'px', top: y + 'px', width: m.labelW * k + 'px', height: m.labelH * k + 'px', borderRadius: m.radius ? `${m.radius * k}px` : '' },
+          }, this.paper.cloneNode(true)));
+        }
+        out.push(h('span', { class: 'row-num', style: { left: x + 'px', top: y - 18 + 'px' } }, String(i + 1)));
+      }
+      this.rowView.replaceChildren(...out);
+    });
   }
 
   setZoom(z, ev) {
@@ -140,8 +213,9 @@ export class Editor {
 
   fit() {
     if (!S.doc) return;
-    const zw = (this.ws.clientWidth - 100) / (S.doc.page.w * PXMM);
-    const zh = (this.ws.clientHeight - 100) / (S.doc.page.h * PXMM);
+    const view = this.viewSize();
+    const zw = (this.ws.clientWidth - 100) / (view.w * PXMM);
+    const zh = (this.ws.clientHeight - 100) / (view.h * PXMM);
     this.setZoom(Math.max(0.2, Math.min(zw, zh, 8)));
     this.ws.scrollLeft = (this.stage.offsetWidth - this.ws.clientWidth) / 2;
     this.ws.scrollTop = (this.stage.offsetHeight - this.ws.clientHeight) / 2;

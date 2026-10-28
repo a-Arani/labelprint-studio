@@ -618,5 +618,13 @@
   "media.thisLabel": "Esta etiqueta",
   "media.onePrintOf": "Uma impressão: {grid}",
   "page.rollMismatch": "As etiquetas deste rolo são de {size}",
-  "page.useRollSize": "Mudar para {size}"
+  "page.useRollSize": "Mudar para {size}",
+  "page.across": "Etiquetas lado a lado",
+  "page.acrossSame": "Todas iguais",
+  "page.acrossEach": "Cada uma diferente",
+  "page.showRow": "Mostrar toda a largura",
+  "page.rowDesign": "O design é uma impressão inteira: {size} mm",
+  "page.rowMismatch": "Uma impressão deste rolo tem {size}",
+  "page.acrossDrop": "Só a etiqueta 1 fica; o que está nas outras é removido.",
+  "print.setupEach": "Design {design} → {roll}: {n} etiquetas diferentes em cada impressão, rotação {rot}"
 }

@@ -618,5 +618,13 @@
   "media.thisLabel": "Эта этикетка",
   "media.onePrintOf": "Одна печать: {grid}",
   "page.rollMismatch": "Этикетки этого рулона — {size}",
-  "page.useRollSize": "Сделать {size}"
+  "page.useRollSize": "Сделать {size}",
+  "page.across": "Этикетки рядом",
+  "page.acrossSame": "Все одинаковые",
+  "page.acrossEach": "Каждая своя",
+  "page.showRow": "Показать всю ширину",
+  "page.rowDesign": "Макет — целая печать: {size} мм",
+  "page.rowMismatch": "Одна печать этого рулона — {size}",
+  "page.acrossDrop": "Останется только этикетка 1; содержимое остальных будет удалено.",
+  "print.setupEach": "Макет {design} → {roll}: {n} разных этикеток за печать, поворот {rot}"
 }

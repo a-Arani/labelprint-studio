@@ -3,6 +3,15 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [2.3.0] - 2026-10-28
+
+### Added
+- **The whole width of the roll on the canvas.** For a roll with several labels in each print, the label panel offers *Labels across*:
+  - **All the same**: you design one label; the canvas shows the roll with the other labels as live copies (*Show the whole width* can hide them).
+  - **Each one different**: all the labels of a print are designed together on one canvas, each with its outline and number; the gaps between them are shaded (they are not printed). Switching copies label 1 to every label; switching back keeps label 1 (after asking) and can be undone.
+- Printing a design with every label different draws it once per record and cuts it into its labels, so the print shift, column offsets, test print and preview work as before. It turns 180° at most.
+- Changing the roll of such a design moves every label's content to its new place; a new label gets a copy of label 1.
+
 ## [2.2.1] - 2026-10-28
 
 ### Changed
@@ -128,6 +137,7 @@ First public release as **LabelPrint Studio**.
 - Folders, variables (counters, dates, text, lists, Excel/CSV tables).
 - Printing to TSC/TSPL printers directly, through any Windows printer driver, or over the network.
 
+[2.3.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.3.0
 [2.2.1]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.2.1
 [2.2.0]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.2.0
 [2.1.7]: https://github.com/a-Arani/labelprint-studio/releases/tag/v2.1.7

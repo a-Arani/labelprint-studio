@@ -6,7 +6,9 @@ import {
 import * as logger from './logger.js';
 import { rasterize, toMono, monoToCanvas, monoToBase64, bbox } from './render.js';
 import { loadPrinters, profileFor, saveProfile, pickDefaultPrinter, baseName } from './printers.js';
-import { mediaList, matchMedia, normMedia, layout, perPrint, problems, tsplOf, openMediaManager, rollSummary } from './media.js';
+import {
+  mediaList, matchMedia, normMedia, layout, perPrint, problems, tsplOf, openMediaManager, rollSummary, isEach, gridOf, cellOrigin,
+} from './media.js';
 import { rotOptions, rotValue } from './panels.js';
 import { openPrinterControl } from './printercontrol.js';
 import { t } from './i18n.js';
@@ -135,6 +137,35 @@ async function* renderRows(label, recs, cfg, onProgress = () => {}) {
     return cache.get(key);
   };
   const row = (cells) => toMono(composePage(m, cells, dpmm, prof, cfg.shift || NO_SHIFT), prof.threshold);
+  if (cfg.each) {
+    // A whole print designed at once, every label different: drawn once per record and cut into its labels
+    const g = label.page.grid || gridOf(m);
+    const LW = Math.round(g.w * dpmm), LH = Math.round(g.h * dpmm);
+    const cellsOf = async (i) => {
+      const c = await rasterize(label, { dpi, rotate: o.rot, values: recs[i] || {} });
+      const cells = Array.from({ length: cols }, (_, k) => {
+        const at = cellOrigin(g, k);
+        const cell = document.createElement('canvas');
+        cell.width = LW;
+        cell.height = LH;
+        cell.getContext('2d').drawImage(c, Math.round(at.x * dpmm), Math.round(at.y * dpmm), LW, LH, 0, 0, LW, LH);
+        return cell;
+      });
+      return { cells, errors: c.errors };
+    };
+    if (identical) {
+      const { cells, errors } = await cellsOf(0);
+      onProgress(1, 1);
+      yield { mono: row(cells), cells, copies: recs.length * copies, labels: recs.length * copies * cols, idx: recs.length - 1, errors };
+      return;
+    }
+    for (let i = 0; i < recs.length; i++) {
+      const { cells, errors } = await cellsOf(i);
+      onProgress(i + 1, recs.length);
+      yield { mono: row(cells), cells, copies, labels: copies * cols, idx: i, errors };
+    }
+    return;
+  }
   if (identical) {
     const p = plan(recs.length, copies, cols, fill);
     const { cell, errors } = await cellOf(0);
@@ -383,18 +414,24 @@ export async function openPrint(preset = {}) {
     read();
     const choice = rotate.value;
     const m = mediaSel.value === 'adhoc' ? adhocMedia(page, choice, prof) : normMedia(mediaList().find((x) => x.id === mediaSel.value));
-    const o = orient(page, m, choice);
     const n = Math.max(1, parseInt(copies.value, 10) || 1);
+    // Designed as a whole print (every label different): one record per print, turned 180 degrees at most
+    const each = isEach(page, m);
+    if (each) {
+      const o = { rot: ['auto180', '180'].includes(choice) ? 180 : 0, dw: page.w, dh: page.h, exact: true };
+      return { m, o, dpi: prof.dpi, fill: 'same', each, copies: n, fitMode: 'fit', prof, shift: { ...shift } };
+    }
+    const o = orient(page, m, choice);
     return { m, o, dpi: prof.dpi, fill: perPrint(m) > 1 ? fillSel.value : 'seq', copies: n, fitMode: fitSel.value, prof, shift: { ...shift } };
   };
 
   const describe = (cfg, recCount) => {
     const { m, o } = cfg;
     fitRow.hidden = o.exact;
-    fillRow.hidden = perPrint(m) < 2;
+    fillRow.hidden = perPrint(m) < 2 || cfg.each;
     fillLabel.textContent = t(m.rows > 1 ? 'media.perPrint' : 'print.fillLabel');
-    const lines = [h('div', {}, t(m.rows > 1 ? 'print.setupGrid' : m.cols > 1 ? 'print.setupCols' : 'print.setup', {
-      design: dims(page.w, page.h), roll: m.name, cols: m.cols, rows: m.rows, label: dims(m.labelW, m.labelH), rot: ltr(o.rot + '°'),
+    const lines = [h('div', {}, t(cfg.each ? 'print.setupEach' : m.rows > 1 ? 'print.setupGrid' : m.cols > 1 ? 'print.setupCols' : 'print.setup', {
+      design: dims(page.w, page.h), roll: m.name, cols: m.cols, rows: m.rows, n: perPrint(m), label: dims(m.labelW, m.labelH), rot: ltr(o.rot + '°'),
     }))];
     const warns = [...problems(m, prof.maxWidth || 108)];
     if (!o.exact) warns.push(t('print.sizeMismatch', { design: dims(r2(o.dw), r2(o.dh)), label: dims(m.labelW, m.labelH) }));
@@ -458,8 +495,8 @@ export async function openPrint(preset = {}) {
     if (!recs.length) { toast(t('print.badRange'), 'error'); return; }
     testBtn.disabled = true;
     try {
-      const first = recs.slice(0, perPrint(cfg.m));
-      const it = renderRows(label, first, { ...cfg, copies: 1, fill: 'seq' });
+      const first = recs.slice(0, cfg.each ? 1 : perPrint(cfg.m));
+      const it = renderRows(label, first, { ...cfg, copies: 1, fill: cfg.each ? 'same' : 'seq' });
       const { value: row } = await it.next();
       if (row.errors.length) throw new Error(row.errors[0]);
       await api('/api/print', {

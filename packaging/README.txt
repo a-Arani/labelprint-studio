@@ -48,6 +48,8 @@ ROLLS AND SEVERAL LABELS ACROSS
   In the right panel pick a roll, or define your own with "Rolls...": labels in each print (across and
   down), the size of one label, the gaps and the roll width (all in mm; measure them on the roll).
   A picture shows the roll as it prints, and a wrong width is offered a one-click fix.
+  The canvas shows the whole width: "All the same" (design one label, the others are copies) or
+  "Each one different" (design all labels of a print together).
   "Print layout test" prints a frame and number on each label so you can check the layout on the roll.
   After changing the roll in the printer, press "Calibrate sensor".
   Automatic rotation: design in portrait or landscape; the app turns the design to fit the roll.

@@ -618,5 +618,13 @@
   "media.thisLabel": "این لیبل",
   "media.onePrintOf": "یک چاپ: {grid}",
   "page.rollMismatch": "لیبل‌های این رول {size} هستند",
-  "page.useRollSize": "اندازه را {size} کن"
+  "page.useRollSize": "اندازه را {size} کن",
+  "page.across": "لیبل‌های کنار هم",
+  "page.acrossSame": "همه مثل هم",
+  "page.acrossEach": "هر کدام جدا",
+  "page.showRow": "نمایش کل عرض",
+  "page.rowDesign": "طرح یک چاپ کامل است: {size} میلی‌متر",
+  "page.rowMismatch": "یک چاپ این رول {size} است",
+  "page.acrossDrop": "فقط لیبل ۱ می‌ماند و آنچه روی لیبل‌های دیگر است پاک می‌شود.",
+  "print.setupEach": "طرح {design} ← {roll}: {n} لیبل متفاوت در هر چاپ، چرخش {rot}"
 }

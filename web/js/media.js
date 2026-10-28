@@ -60,6 +60,27 @@ export const perPrint = (m) => m.cols * (m.rows || 1);
 /** Width the labels take without the margins */
 export const labelsWidth = (m) => r2(m.cols * m.labelW + (m.cols - 1) * m.colGap);
 
+// A label designed as a whole print, every label different: the grid of its labels (without the roll's margins)
+export const gridOf = (m) => ({ cols: m.cols, rows: m.rows || 1, w: m.labelW, h: m.labelH, gx: m.colGap, gy: m.rowGap });
+export const gridSize = (g) => ({ w: r2(g.cols * g.w + (g.cols - 1) * g.gx), h: r2(g.rows * g.h + (g.rows - 1) * g.gy) });
+
+/** Top-left corner of label k (in print order) in the grid */
+export const cellOrigin = (g, k) => ({ x: (k % g.cols) * (g.w + g.gx), y: Math.floor(k / g.cols) * (g.h + g.gy) });
+
+/** The label (in print order) a point lies on; a gap counts with the label before it */
+export function cellAt(g, x, y) {
+  const c = clamp(Math.floor(x / (g.w + g.gx)), 0, g.cols - 1), r = clamp(Math.floor(y / (g.h + g.gy)), 0, g.rows - 1);
+  return r * g.cols + c;
+}
+
+/** The label is designed as a whole print, every label different */
+export const isEach = (page, m) => page.across === 'each' && !!m && perPrint(m) > 1;
+
+/** Show the other labels of a print on the canvas (a view preference, not part of the label) */
+export function showRow() {
+  try { return localStorage.getItem('ls.showRow') !== '0'; } catch (e) { return true; }
+}
+
 /** What is wrong with a roll; skipFit: leave out "the labels are wider than the roll" (the Rolls window shows it itself) */
 export function problems(m, maxWidth = 108, skipFit = false) {
   const out = [];
@@ -277,7 +298,8 @@ const centeredOnRoll = (m) => Math.abs(m.marginL - (m.linerW - labelsWidth(m)) /
 export async function openMediaManager(selectId, onDone, { forLabel = false } = {}) {
   let list = mediaList();
   const labelRoll = S.doc ? S.doc.page.mediaId : null;
-  const sizes = new Map(list.map((m) => [m.id, `${m.labelW}x${m.labelH}`]));
+  const shape = (m) => [m.labelW, m.labelH, m.cols, m.rows, m.colGap, m.rowGap].join('x');
+  const sizes = new Map(list.map((m) => [m.id, shape(m)]));
   let cur = list.find((m) => m.id === selectId) || list[0];
   const printersInfo = await loadPrinters();
   let prof = profileFor(pickDefaultPrinter(printersInfo));
@@ -473,8 +495,8 @@ export async function openMediaManager(selectId, onDone, { forLabel = false } = 
   });
   if (!res) return null;
   await saveMediaList(list);
-  // Labels follow their roll: the open label is resized when the size of its roll's labels changed
-  emit('rolls-saved', list.filter((m) => sizes.has(m.id) && sizes.get(m.id) !== `${m.labelW}x${m.labelH}`).map((m) => m.id));
+  // Labels follow their roll: the open label is laid out again when its roll's labels or grid changed
+  emit('rolls-saved', list.filter((m) => sizes.has(m.id) && sizes.get(m.id) !== shape(m)).map((m) => m.id));
   toast(t('media.saved'), 'ok', 1500);
   if (onDone) onDone(cur.id);
   return cur.id;

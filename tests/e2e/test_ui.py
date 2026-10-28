@@ -398,3 +398,65 @@ def test_label_follows_its_roll(page, app_url):
     page.keyboard.press("Escape")
     page.click("#btn-undo")
     page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.w === 105")
+
+
+def test_labels_across_same_and_each(page, app_url):
+    """Two labels across: copies of the label on the canvas, or both designed together and cut apart for printing."""
+    page.goto(app_url)
+    page.wait_for_selector("#splash", state="detached", timeout=10000)
+    page.click("#btn-new")
+    dlg = page.locator(".dlg").last
+    dlg.locator("select").select_option("m2x48x25")
+    dlg.locator("input.inp").first.fill("Across")
+    dlg.locator(".btn-primary").click()
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc?.name === 'Across'")
+    page.evaluate("async () => { const st = await import('/js/state.js'); st.snapshot();"
+                  " st.S.doc.elements.push({ id: 't1', type: 'text', x: 2, y: 3, w: 30, h: 12, html: 'AB 12', size: 24, font: 'Tahoma', rot: 0 });"
+                  " st.changed('doc'); }")
+    roll = page.evaluate("async () => { const m = await import('/js/media.js'); const r = m.mediaById('m2x48x25'); return { ...r, xs: m.layout(r).xs }; }")
+    state = "async () => { const st = await import('/js/state.js'); const p = st.S.doc.page; return [p.w, p.h, p.across || 'same', st.S.doc.elements.length]; }"
+
+    # All the same: the other label is shown as a copy (it can be hidden)
+    page.locator(".row-copy").first.wait_for()
+    assert page.locator(".row-copy").count() == 1
+    page.locator('#props [data-key="showRow"]').uncheck()
+    page.wait_for_function("() => !document.querySelector('.row-copy')")
+    page.locator('#props [data-key="showRow"]').check()
+    page.locator(".row-copy").first.wait_for()
+
+    # Each one different: the whole print is designed, label 1 copied to label 2
+    page.locator(".seg-b").nth(1).click()
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.across === 'each'")
+    assert page.evaluate(state) == [roll["labelW"] * 2 + roll["colGap"], roll["labelH"], "each", 2]
+    assert page.locator(".cg-cell").count() == 2
+    # Back to all the same asks first (label 2 has content), and can be undone
+    page.locator(".seg-b").nth(0).click()
+    page.locator(".dlg .btn-primary").click()
+    page.wait_for_function("async () => !(await import('/js/state.js')).S.doc.page.across")
+    assert page.evaluate(state) == [roll["labelW"], roll["labelH"], "same", 1]
+    page.click("#btn-undo")
+    page.wait_for_function("async () => (await import('/js/state.js')).S.doc.page.across === 'each'")
+
+    # Label 2 emptied: printing puts ink on label 1 only
+    page.evaluate("async (w) => { const st = await import('/js/state.js'); st.snapshot(); st.S.doc.elements = st.S.doc.elements.filter((e) => e.x < w); st.changed('doc'); }", roll["labelW"])
+    port, received = fake_printer()
+    page.click("#btn-print")
+    pd = page.locator(".dlg").last
+    pd.locator("select").nth(1).select_option("network")
+    pd.locator("input[placeholder='192.168.1.50']").fill("127.0.0.1")
+    pd.locator("label.field", has=page.locator("span", has_text="Port")).locator("input").fill(str(port))
+    page.wait_for_timeout(400)
+    assert "2 different labels" in re.sub("[⁦-⁩]", "", pd.locator(".print-setup").inner_text())
+    pd.locator(".btn-primary").click()
+    for _ in range(100):
+        if received.rstrip().endswith(b"PRINT 1,1"):
+            break
+        time.sleep(0.1)
+    wb, hh, data = printing.decode_tspl_bitmaps(bytes(received))[-1]
+    dots = lambda mm: round(mm * 8)  # noqa: E731
+
+    def ink(x0, x1):
+        return sum(1 for y in range(hh) for x in range(x0, x1) if not (data[y * wb + (x >> 3)] & (0x80 >> (x & 7))))
+    first, second = roll["xs"]
+    assert ink(dots(first), dots(first + roll["labelW"])) > 0
+    assert ink(dots(second), dots(second + roll["labelW"])) == 0

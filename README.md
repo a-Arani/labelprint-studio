@@ -91,6 +91,10 @@ Thermal printers print only black dots, so every picture has its own **black-and
 
 Describe your roll the way you see it: **how many labels in each print** (across, and down if ever needed), **the size of one label**, the gaps and the roll width. A large picture shows the roll with the labels numbered in print order and highlights each size as you type it. If the numbers do not add up, one click fixes them. Start from a common size, or from your own rolls.
 
+On the canvas you see **the whole width of the roll**. With **All the same**, you design one label and the others show it as copies. With **Each one different**, all the labels of a print are designed together, side by side, and cut apart for printing.
+
+![The whole width of a two-across roll on the canvas: the label being designed and its copy](docs/screenshots/two-across-canvas.png)
+
 Designed in portrait but the roll is landscape? LabelPrint Studio **rotates the design automatically** to fit.
 
 </td>
@@ -185,7 +189,7 @@ Labels are rendered at the printer's resolution (203, 300 or 600 dpi) in sharp b
 
 You do **not** need to install Python or anything else; everything is included.
 
-1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.2.1-win64.zip`** under *Assets*.
+1. Open the **[latest release](https://github.com/a-Arani/labelprint-studio/releases/latest)** and download **`LabelPrintStudio-v2.3.0-win64.zip`** under *Assets*.
 2. Right-click the downloaded file → **Extract All…** and extract it to a permanent folder, for example `C:\LabelPrintStudio`.
 3. Open the extracted folder and double-click **`Create Desktop Shortcut.bat`** (only once).
 4. Start **LabelPrint Studio** from the new desktop shortcut.

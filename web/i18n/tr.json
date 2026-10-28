@@ -618,5 +618,13 @@
   "media.thisLabel": "Bu etiket",
   "media.onePrintOf": "Bir baskı: {grid}",
   "page.rollMismatch": "Bu rulonun etiketleri {size}",
-  "page.useRollSize": "{size} yap"
+  "page.useRollSize": "{size} yap",
+  "page.across": "Yan yana etiketler",
+  "page.acrossSame": "Hepsi aynı",
+  "page.acrossEach": "Her biri farklı",
+  "page.showRow": "Tüm genişliği göster",
+  "page.rowDesign": "Tasarım tam bir baskıdır: {size} mm",
+  "page.rowMismatch": "Bu rulonun bir baskısı {size}",
+  "page.acrossDrop": "Yalnızca 1. etiket kalır; diğerlerindekiler silinir.",
+  "print.setupEach": "Tasarım {design} → {roll}: her baskıda {n} farklı etiket, döndürme {rot}"
 }

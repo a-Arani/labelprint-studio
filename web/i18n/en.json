@@ -618,5 +618,13 @@
   "media.thisLabel": "This label",
   "media.onePrintOf": "One print: {grid}",
   "page.rollMismatch": "The labels on this roll are {size}",
-  "page.useRollSize": "Make it {size}"
+  "page.useRollSize": "Make it {size}",
+  "page.across": "Labels across",
+  "page.acrossSame": "All the same",
+  "page.acrossEach": "Each one different",
+  "page.showRow": "Show the whole width",
+  "page.rowDesign": "The design is one whole print: {size} mm",
+  "page.rowMismatch": "One print of this roll is {size}",
+  "page.acrossDrop": "Only label 1 stays; what is on the other labels is removed.",
+  "print.setupEach": "Design {design} → {roll}: {n} different labels in each print, rotation {rot}"
 }

@@ -618,5 +618,13 @@
   "media.thisLabel": "هذا الملصق",
   "media.onePrintOf": "طباعة واحدة: {grid}",
   "page.rollMismatch": "ملصقات هذه اللفة {size}",
-  "page.useRollSize": "اجعله {size}"
+  "page.useRollSize": "اجعله {size}",
+  "page.across": "الملصقات المتجاورة",
+  "page.acrossSame": "كلها متشابهة",
+  "page.acrossEach": "كل واحد مختلف",
+  "page.showRow": "إظهار العرض كاملاً",
+  "page.rowDesign": "التصميم طباعة كاملة: {size} مم",
+  "page.rowMismatch": "طباعة واحدة من هذه اللفة {size}",
+  "page.acrossDrop": "يبقى الملصق 1 فقط، ويُحذف ما على الملصقات الأخرى.",
+  "print.setupEach": "التصميم {design} ← {roll}: {n} ملصقات مختلفة في كل طباعة، تدوير {rot}"
 }
